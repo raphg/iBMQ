@@ -1,11 +1,11 @@
 Package: iBMQ
 Type: Package
-Title: iBMQ
+Title: integrated Bayesian Modeling of eQTL data
 Version: 1.0
 Date: 2011-10-28
-Author: Who wrote it
-Maintainer: Who to complain to <yourfault@somewhere.net>
-Description: More about what it does (maybe more than one line)
+Author: Marie-Pier Scott-Boyer and Greg Imholte
+Maintainer: Marie-Pier Scott-Boyer <Marie-Pier.Scott-Boyer@ircm.qc.ca>
+Description: integrated Bayesian Modeling of eQTL data
 License: What license is it under?
 LazyLoad: yes
 Packaged: 2012-01-18 21:27:16 UTC; scottm
