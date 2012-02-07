@@ -116,35 +116,6 @@ void c_qtl_main_parallel_sparse_constC(double *gene, int *n_indivs, int *n_genes
 	Mufile = fopen("Mufile.txt", "w");
 	Sig2file = fopen("Sig2file.txt", "w");
 
-	// initialize single indexed arrays
-	double *A, *B, *C, *P, *Mu, *Sig2, *expr_means, *expr_vars, *alpha2_beta;
-	double *Astart, *Bstart;
-	int *test;
-
-	A = (double*)malloc(*n_snps*sizeof(double));
-	B = (double*)malloc(*n_snps*sizeof(double));;
-	P = (double*)malloc(*n_snps*sizeof(double));
-	C = (double*)malloc(*n_genes*sizeof(double));
-	Mu = (double*)malloc(*n_genes*sizeof(double));
-	Sig2 = (double*)malloc(*n_genes*sizeof(double));
-	test = (int*)malloc(*n_snps*sizeof(int));
-
-	//empirical mean and variance of gene expression
-	expr_means = (double*)malloc(*n_genes*sizeof(double));
-	expr_vars = (double*)malloc(*n_genes*sizeof(double));
-
-	// holds (X_j)^T (X_j) for each snp j
-	alpha2_beta = (double*)malloc(*n_snps*sizeof(double));
-
-	// check whether dynamic allocation is successful
-	if(A == NULL || B == NULL || P == NULL || C == NULL || Mu == NULL || Sig2 == NULL ||
-			expr_means == NULL || expr_vars == NULL || alpha2_beta == NULL)
-	{
-		Rprintf("Memory allocation failed, exiting.\n");
-		return;
-	}
-
-
 	//statically allocated arrays for Adaptive Rejection Sampling
 	double hwv[10], hpwv[10], scum[10], scum_norm[10], s[10], z[10];
 	*nmax = (*nmax < 10) ? *nmax : 10;
@@ -167,7 +138,6 @@ void c_qtl_main_parallel_sparse_constC(double *gene, int *n_indivs, int *n_genes
 			return;
 		}
 		Beta[g]->next = NULL;
-
 	}
 
 	// initialize double indexed arrays
@@ -200,6 +170,33 @@ void c_qtl_main_parallel_sparse_constC(double *gene, int *n_indivs, int *n_genes
 		}
 	}
 
+	// initialize single indexed arrays
+	double *A, *B, *C, *P, *Mu, *Sig2, *expr_means, *expr_vars, *alpha2_beta;
+	double *Astart, *Bstart;
+	int *test;
+
+	A = (double*)malloc(*n_snps*sizeof(double));
+	B = (double*)malloc(*n_snps*sizeof(double));;
+	P = (double*)malloc(*n_snps*sizeof(double));
+	C = (double*)malloc(*n_genes*sizeof(double));
+	Mu = (double*)malloc(*n_genes*sizeof(double));
+	Sig2 = (double*)malloc(*n_genes*sizeof(double));
+	test = (int*)malloc(*n_snps*sizeof(int));
+
+	//empirical mean and variance of gene expression
+	expr_means = (double*)malloc(*n_genes*sizeof(double));
+	expr_vars = (double*)malloc(*n_genes*sizeof(double));
+
+	// holds (X_j)^T (X_j) for each snp j
+	alpha2_beta = (double*)malloc(*n_snps*sizeof(double));
+
+	// check whether dynamic allocation is successful
+	if(A == NULL || B == NULL || P == NULL || C == NULL || Mu == NULL || Sig2 == NULL ||
+			expr_means == NULL || expr_vars == NULL || alpha2_beta == NULL)
+	{
+		Rprintf("Memory allocation failed, exiting.\n");
+		return;
+	}
 
 	// cheesy but effective
 	double lambdaa = 0.0;
@@ -260,13 +257,6 @@ void c_qtl_main_parallel_sparse_constC(double *gene, int *n_indivs, int *n_genes
 		{
 			Rprintf("******** iter %d *********\n",1+iter);
 		}
-
-		if(kill == 1)
-		{
-			Rprintf("ARS sampling error");
-			return;
-		}
-
 		//if the user wants to interrupt computation (^C)
 		R_CheckUserInterrupt();
 
@@ -282,23 +272,14 @@ void c_qtl_main_parallel_sparse_constC(double *gene, int *n_indivs, int *n_genes
 						lambda_a, a_0, lambda_b, b_0, tau_0, n_snps, n_genes, n_indivs, g, one, rngs[th_id]);
 			}
 
-
 			#pragma omp for nowait
 			for(j = 0; j < *n_snps; j++)
 			{
-				test[j] = update_pos_j(P, A, B, C, W, Gamma,
+				update_pos_j(P, A, B, C, W, Gamma,
 						j, a_0, b_0, lambda_a, lambda_b,
 						n_snps, n_genes, n_indivs, rngs[th_id], *nmax,
 						xA[j], xB[j], hwv, hpwv, scum,
 						scum_norm, s, z, *eps);
-			}
-		}
-
-		for(j = 0; j < *n_snps; j++)
-		{
-			if(test[j] == 0)
-			{
-				kill = 1;
 			}
 		}
 
@@ -520,28 +501,6 @@ int update_pos_j(double* P, double* A, double* B, double* C, double** W, int** G
 		{
 			return(0);
 		}
-
-		//Rprintf("ARS successful\n");
-
-		/*
-		// sequentially update A[j] and B[j]
-		a_prop = RngStream_GA1(1.0, rng)/(*lambda_a - s_log_w);
-		b_prop = RngStream_GA1(1.0, rng)/(*lambda_b - s_log_1minus_w);
-
-		ratio = (double)(*n_genes - S_j0)*(gsl_sf_lnbeta(A[j], B[j]) -
-				gsl_sf_lnbeta(a_prop, B[j]));
-		if(log(RngStream_RandU01(rng)) <= ratio)
-		{
-			A[j] = a_prop;
-		}
-
-		ratio = (double)(*n_genes - S_j0)*(gsl_sf_lnbeta(A[j], B[j]) -
-				gsl_sf_lnbeta(A[j], b_prop));
-		if(log(RngStream_RandU01(rng)) <= ratio)
-		{
-			B[j] = b_prop;
-		}
-		*/
 	}
 
 	P[j] = RngStream_Beta(*a_0 + (double)(*n_genes - S_j), *b_0 + (double)(S_j), rng);
