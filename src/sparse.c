@@ -10,6 +10,8 @@
 #include<gsl/gsl_matrix.h>
 #include<R.h>
 
+
+// retrieve vector element j from sparse vector.
 double SV_get(m_el *header, int j)
 {
 	m_el *tmp_ptr;
@@ -28,7 +30,9 @@ double SV_get(m_el *header, int j)
 	return x;
 }
 
-// assumes that these are reasonable things to take a dot product from
+// Sparse vector/regular vector dot product: output stored in out.
+// assumes that these are reasonable things to take a dot product from,
+// i.e. dimensions of y and SV *header match properly.
 void SV_ddot(const double *y, m_el *header, double* out)
 {
 	*out = 0.0;
@@ -42,6 +46,7 @@ void SV_ddot(const double *y, m_el *header, double* out)
 	return;
 }
 
+// diagnostic tool: prints contents of a sparse vector to R console.
 void SV_printlist(m_el *header)
 {
 	m_el *tmp_ptr;
@@ -57,6 +62,7 @@ void SV_printlist(m_el *header)
 }
 
 // calculates X(vec m_el) + y = y
+// Matrix vector plus y:
 void SV_dmvpy(double** X, m_el *header, double* y, int nrow)
 {
 	int indx, i;
@@ -80,6 +86,7 @@ void SV_dmvpy(double** X, m_el *header, double* y, int nrow)
 	return;
 }
 
+// GSL matrix times sparse vector plus Y
 void SV_gsl_dmvpy(gsl_matrix* X, m_el *header, double* y, int nrow)
 {
 	int indx, i;
@@ -116,7 +123,8 @@ void SV_free(m_el *header)
 	}
 }
 
-// this function assumes element j is in the list.
+// this function assumes element j is in the list, and removes it
+// error handling is somewhat sub-par.
 void SV_remove_el(m_el *header, int j)
 {
 	m_el *temp_ptr, *temp_ptr_prev;
@@ -142,7 +150,7 @@ void SV_remove_el(m_el *header, int j)
 	return;
 }
 
-
+// Add an element at index j to a sparse vector object.
 void SV_add_el(m_el *header, int j, double val)
 {
 	int temp_ind;
