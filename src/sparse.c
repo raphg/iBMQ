@@ -10,7 +10,6 @@
 #include<gsl/gsl_matrix.h>
 #include<R.h>
 
-
 // retrieve vector element j from sparse vector.
 double SV_get(m_el *header, int j)
 {

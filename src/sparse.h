@@ -9,7 +9,7 @@
 #define SPARSE_H_
 #include<gsl/gsl_matrix.h>
 
-#endif /* SPARSE_H_ */
+
 
 typedef struct M_EL {
 	int ind;
@@ -26,3 +26,4 @@ void SV_free(m_el *header);
 void SV_ddot(const double *x, m_el *header, double* out);
 double SV_get(m_el *header, int j);
 
+#endif /* SPARSE_H_ */
