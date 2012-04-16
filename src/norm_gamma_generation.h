@@ -15,3 +15,4 @@
 double RngStream_N01 (const RngStream r);
 double RngStream_GA1 (const double a, RngStream r);
 double RngStream_Beta (const double a, const double b, RngStream r);
+double RngStream_LogitBeta(double a, double b, RngStream rng);
