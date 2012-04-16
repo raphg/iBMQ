@@ -24,32 +24,6 @@
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_sf.h>
 
-// function to test the sampler, not used in main function.
-void sample_one(double* start_val, int* n_max, double* S_j, double* c, double* R, double* out,
-		double* eps)
-{
-	double *x;
-	double sample;
-	int num_x = 2;
-
-	x = (double*)malloc(*n_max * sizeof(double));
-
-	ARS_workspace space;
-	RngStream rng;
-	rng = RngStream_CreateStream("");
-
-	x[0] = start_val[0];
-	x[1] = start_val[1];
-	sample = sample_conditional(x, &num_x, *n_max, *S_j, *c, *R, &space, rng, *eps);
-	out[0] = sample;
-	out[1] = x[0];
-	out[2] = x[1];
-
-	free(x);
-	RngStream_DeleteStream(rng);
-
-	return;
-}
 
 /* Reference:
  * Gilks and Wild (1992)
@@ -71,7 +45,6 @@ void sample_one(double* start_val, int* n_max, double* S_j, double* c, double* R
  * num_x: number of starting points
  * nmax: maximum number of points in lattice
  *
- * S_j, c, R: parameters from conditional density
  *
  * ARS_workspace is a struct with elements
  * hwv: working vector for the h(x) values
@@ -81,39 +54,58 @@ void sample_one(double* start_val, int* n_max, double* S_j, double* c, double* R
  * z: intersection of hull tangents
  * s: working vector for calculating scum
  *
- *
+ * h: function taking a double and a vector of arguments, returns log density
+ * h_prime: function taking double and vector of arguments, returns derivative of log density
  * rng: random number generator
  * eps: double machine precision value
  */
 
 
 // returns -1.0 if an error is detected.
-double sample_conditional(double* x, int* num_x, int nmax, double S_j, double c, double R, ARS_workspace *space,
-		RngStream rng, double eps)
+double sample_conditional(double* restrict x,
+		int* restrict num_x,
+		int nmax,
+		double* restrict argvec,
+		ARS_workspace *ws,
+		RngStream rng,
+		double eps, double (*h)(double, double *),
+		double (*h_prime)(double , double *))
 {
 	int i, u_section, l_section;
 	int accept = 0;
+	int attempts = 0;
 	int update = 0;
-	double x_samp, W, l, u, hnew, hpnew, zlower, zupper, V;
+
+	double x_samp, W, l, u, hnew, V;
 	double huzmax, test1, test2, tmp0, tmp1;
+
+	double* restrict hwv = ws->hwv;
+	double* restrict hpwv = ws->hpwv;
+	double* restrict z = ws->z;
 
 	// intialize the lattice
 	for(i = 0; i < *num_x; i++)
 	{
-		space->hwv[i] = h(x[i], S_j, c, R);
-		space->hpwv[i] = h_prime(x[i], S_j, c, R);
+		const double xval = x[i];
+		const double nhwv = h(xval, argvec);
+		const double nhpwv = h_prime(xval, argvec);
+
+		hwv[i] = nhwv;
+		hpwv[i] = nhpwv;
 	}
 
 	// need last hpwv  < 0, move x_last farther out until this is so. This only works with
 	// strict concavity!
 
-	while(space->hpwv[*num_x-1] >= 0)
+	while(hpwv[*num_x-1] >= 0)
 	{
-		x[*num_x - 1] = x[*num_x - 1] + 2.0;
-		space->hpwv[*num_x - 1] = h_prime(x[*num_x - 1], S_j, c, R);
+		const double xnew = x[*num_x - 1] + 2.0;
+		x[*num_x - 1] = xnew;
 
+		const double nhpwv = h_prime(x[*num_x - 1], argvec);
+		hpwv[*num_x - 1] = nhpwv;
 	}
-	space->hwv[*num_x - 1] = h(x[*num_x - 1], S_j, c, R);
+	hwv[*num_x - 1] = h(x[*num_x - 1], argvec);
 
 	//now calculate intersection of lines, z
 	// i-th element corresponds to intersection to right of x[i]
@@ -122,65 +114,64 @@ double sample_conditional(double* x, int* num_x, int nmax, double S_j, double c,
 		if(i == 0)
 		{
 			// initialize the search largest y value in outer hull
-			huzmax = space->hwv[0] - x[0]*space->hpwv[0];
+			huzmax = hwv[0] - x[0]*hpwv[0];
 		}
+
+		const double x_i = x[i];
+		const double x_ip1 = x[i+1];
+		const double hwv_i = hwv[i];
+		const double hwv_ip1 = hwv[i+1];
+		const double hpwv_i = hpwv[i];
+		const double hpwv_ip1 = hpwv[i+1];
+		double znew;
+
 		// tangents are nearly parallel, use midpoint
 		// approximation to avoid instability
-		if((space->hpwv[i] - space->hpwv[i+1]) <= eps)
+
+		if((hpwv_i - hpwv_ip1) <= eps)
 		{
-			space->z[i] = (x[i+1] + x[i])/2.0;
+
+			znew = (x_i + x_ip1)/2.0;
 			test1 = huzmax;
-			test2 = (space->hwv[i] + (space->z[i] - x[i])*(space->hpwv[i]));
+			test2 = hwv_i + (znew - x_i) * (hpwv_i);
 			huzmax = (test1 > test2) ? test1 : test2;
 		}
 		else
 		{
-			space->z[i] = (space->hwv[i+1] - space->hwv[i] - x[i+1]*(space->hpwv[i+1]) +
-					x[i]*(space->hpwv[i]))/
-					(space->hpwv[i] - space->hpwv[i+1]);
+			znew = (hwv_ip1 - hwv_i - x_ip1*hpwv_ip1 +
+					x_i*hpwv_i)/
+					(hpwv_i - hpwv_ip1);
 			test1 = huzmax;
-			test2 = (space->hwv[i] + (space->z[i] - x[i])*(space->hpwv[i]));
+			test2 = hwv_i + (znew - x_i) * hpwv_i;
 			huzmax = (test1 > test2) ? test1 : test2;
 		}
-
+		z[i] = znew;
 	}
 
 	//huzmax holds the maximum value of the hull on the log scale
 
-	//Rprintf("computed z values\n");
 	// this initializes the hull, i.e. creates the cumulative distribution function of the
 	// outer hull.
-	initialize_hull(x, space, num_x, &huzmax);
+	initialize_hull(x, ws, *num_x, huzmax);
 
-	//Rprintf("Hull initialized\n");
-	while(accept == 0)
+	while(attempts < 10000)
 	{
 		V = RngStream_RandU01(rng);
 
-		x_samp = sample_hull(x, space, num_x, &u_section, V, &huzmax);
+		x_samp = sample_hull(x, ws, num_x, &u_section, V, huzmax);
+		attempts++;
+
 		// check for sampling trouble
-		if(isnan(x_samp) || isinf(x_samp) || (x_samp <= 0))
-		{
-			for(i = 0; i < *num_x; i++)
-			{
-				Rprintf("i = %d, x = %.3lf, scum = %.3lf, scum_norm = %.3lf, hpwv = %.3lf, hwv = %.3lf \n",
-						i, x[i], space->scum[i], space->scum_norm[i], space->hpwv[i], space->hwv[i]);
-			}
-			for(i = 0; i < *num_x - 1; i++)
-			{
-				Rprintf("z_%d = %lf\n", i, space->z[i]);
-			}
-			Rprintf("R = %lf, S_j = %lf, c = %lf\n", R, S_j, c);
-			Rprintf("x_samp = %lf \n", x_samp);
-			return(-1.0);
-		}
+		check_sample(x_samp, x, ws, num_x);
+
 		W = RngStream_RandU01(rng);
 
 		// u_section is the j corresponding to x[j]
-		u = space->hwv[u_section] + (x_samp - x[u_section])*(space->hpwv[u_section]);
+		u = hwv[u_section] + (x_samp - x[u_section])*(hpwv[u_section]);
 
 		// check sandwich acceptance
 		l_section = 0;
+
 		while((l_section < *num_x) & (x[l_section] < x_samp))
 		{
 			l_section++;
@@ -193,70 +184,55 @@ double sample_conditional(double* x, int* num_x, int nmax, double S_j, double c,
 			// we're in the interior of the lattice
 
 			// calculate value in lower hull.
-			l =	((x[j] - x_samp)*(space->hwv[j-1]) + (x_samp - x[j-1])*(space->hwv[j]))/
+			l =	((x[j] - x_samp)*(hwv[j-1]) + (x_samp - x[j-1])*(hwv[j]))/
 					(x[j] - x[j-1]);
 
 			//squeeze test.
 			if(log(W) <= (l - u))
 			{
-				tmp0 = sample_hull(x, space, num_x, &u_section, .15, &huzmax);
-				tmp1 = sample_hull(x, space, num_x, &u_section, .85, &huzmax);
+				// acquire 15th and 85th percentile.
+				tmp0 = sample_hull(x, ws, num_x, &u_section, .15, huzmax);
+				tmp1 = sample_hull(x, ws, num_x, &u_section, .85, huzmax);
+
 				x[0]=tmp0;
 				x[1]=tmp1;
-				if(isnan(x[0]) || isnan(x[1]))
-				{
-					for(i = 0; i < *num_x; i++)
-					{
-						Rprintf("i = %d, x = %.3lf, scum = %.3lf, scum_norm = %.3lf, hpwv = %.3lf, hwv = %.3lf \n",
-								i, x[i], space->scum[i], space->scum_norm[i], space->hpwv[i], space->hwv[i]);
-					}
-					for(i = 0; i < *num_x - 1; i++)
-					{
-						Rprintf("z_%d = %lf\n", i, space->z[i]);
-					}
-					Rprintf("R = %lf, S_j = %lf, c = %lf\n", R, S_j, c);
-					Rprintf("x_samp = %lf \n", x_samp);
 
-				}
+				check_sample(x[0], x, ws, num_x);
+				check_sample(x[1], x, ws, num_x);
+
 				return(x_samp);
 			}
 			// failed squeeze test, need to evaluate h at x_samp
 			// and compare directly to outer hull.
 			else
 			{
-				hnew = h(x_samp, S_j, c, R);
+				hnew = h(x_samp, argvec);
 				if(log(W) <= (hnew - u))
 				{
-					tmp0 = sample_hull(x, space, num_x, &u_section, .15, &huzmax);
-					tmp1 = sample_hull(x, space, num_x, &u_section, .85, &huzmax);
+					// sample accepted!
+					//acquire 15th and 85th percentiles
+					tmp0 = sample_hull(x, ws, num_x, &u_section, .15, huzmax);
+					tmp1 = sample_hull(x, ws, num_x, &u_section, .85, huzmax);
+
 					x[0]=tmp0;
 					x[1]=tmp1;
-					if(isnan(x[0]) || isnan(x[1]))
-					{
-						for(i = 0; i < *num_x; i++)
-						{
-							Rprintf("i = %d, x = %.3lf, scum = %.3lf, scum_norm = %.3lf, hpwv = %.3lf, hwv = %.3lf \n",
-									i, x[i], space->scum[i], space->scum_norm[i], space->hpwv[i], space->hwv[i]);
-						}
-						for(i = 0; i < *num_x - 1; i++)
-						{
-							Rprintf("z_%d = %lf\n", i, space->z[i]);
-						}
-						Rprintf("R = %lf, S_j = %lf, c = %lf\n", R, S_j, c);
-						Rprintf("x_samp = %lf \n", x_samp);
-					}
+
+					check_sample(x[0], x, ws, num_x);
+					check_sample(x[1], x, ws, num_x);
+
 					return(x_samp);
 				}
 				else
 				{
-					update = update_hull(x, space, num_x, nmax,
-							x_samp, hnew, l_section, R, S_j, c, &huzmax);
+					// failed direct comparison, we add the new sampled value to the hull
+					update = update_hull(x, ws, argvec, num_x, nmax,
+							x_samp, hnew, l_section, &huzmax, h, h_prime);
+
 					// if update == 1 we added a new point to the lattice
 					if(update == 1)
 					{
-						initialize_hull(x, space, num_x, &huzmax);
+						initialize_hull(x, ws, *num_x, huzmax);
 					}
-					//Rprintf("huzmax = %lf\n", huzmax);
 				}
 			}
 		}
@@ -265,50 +241,52 @@ double sample_conditional(double* x, int* num_x, int nmax, double S_j, double c,
 		{
 			// we're on either the left or right edge or the
 			// hull when sampling here
-			hnew = h(x_samp, S_j, c, R);
+			hnew = h(x_samp, argvec);
 			if(log(W) <= (hnew - u))
 			{
 				// sample accepted
-				tmp0 = sample_hull(x, space, num_x, &u_section, .15, &huzmax);
-				tmp1 = sample_hull(x, space, num_x, &u_section, .85, &huzmax);
+				// gather 15th and 85th percentiles for next sample
+				tmp0 = sample_hull(x, ws, num_x, &u_section, .15, huzmax);
+				tmp1 = sample_hull(x, ws, num_x, &u_section, .85, huzmax);
+
 				x[0]=tmp0;
 				x[1]=tmp1;
-				if(isnan(x[0]) || isnan(x[1]))
-				{
-					for(i = 0; i < *num_x; i++)
-					{
-						Rprintf("i = %d, x = %.3lf, scum = %.3lf, scum_norm = %.3lf, hpwv = %.3lf, hwv = %.3lf \n",
-								i, x[i], space->scum[i], space->scum_norm[i], space->hpwv[i], space->hwv[i]);
-					}
-					for(i = 0; i < *num_x - 1; i++)
-					{
-						Rprintf("z_%d = %lf\n", i, space->z[i]);
-					}
-					Rprintf("R = %lf, S_j = %lf, c = %lf\n", R, S_j, c);
-					Rprintf("x_samp = %lf \n", x_samp);
-				}
+
+				check_sample(x[0], x, ws, num_x);
+				check_sample(x[1], x, ws, num_x);
+
 				return(x_samp);
 			}
 			else
 			{
-				update = update_hull(x, space, num_x, nmax,
-						x_samp, hnew, l_section, R, S_j, c, &huzmax);
+				update = update_hull(x, ws, argvec, num_x, nmax,
+						x_samp, hnew, l_section, &huzmax, h, h_prime);
+
 				// if update == 1 we added a new point to the lattice
 				// and we must re-normalize the outer hull
 				if(update == 1)
 				{
-					initialize_hull(x, space, num_x, &huzmax);
+					initialize_hull(x, ws, *num_x, huzmax);
 				}
 			}
 		}
 	}
-	//value sampled successfully
+
+	print_hull(x, ws, num_x);
+	error("Rejection Sampler failed \n");
 }
 
-// insert a new abcissae in the hull, update the Z and
-int update_hull(double *x, ARS_workspace *space, int *num_x, int nmax,
-		double xnew, double hnew, int l_section,
-		double R, double S_j, double c, double *huzmax)
+// insert a new abcissae in the hull, update the Z values, H, Hprime, max hull values
+int update_hull(double* restrict x,
+		ARS_workspace *ws,
+		double* restrict argvec,
+		int* restrict num_x,
+		int nmax,
+		double xnew,
+		double hnew,
+		int l_section,
+		double* restrict huzmax,
+		double (*h)(double, double *), double (*h_prime)(double , double *))
 {
 	if(nmax == *num_x)
 	{
@@ -318,42 +296,50 @@ int update_hull(double *x, ARS_workspace *space, int *num_x, int nmax,
 	}
 
 	double hpnew, test2, test1;
+	double* restrict hwv = ws->hwv;
+	double* restrict hpwv = ws->hpwv;
+	double* restrict z = ws->z;
 	int i;
 
-	hpnew = h_prime(xnew, S_j, c, R);
+	hpnew = h_prime(xnew, argvec);
 	// we are past l_section, so x_samp goes between
 	// x[l_section - 1] and x[l_section]
+
 	if(l_section == 0)
 	{
 		//new sample fell in leftmost chamber
 		*num_x = *num_x + 1;
+
 		for(i = *num_x - 1; i > 0; i--)
 		{
 			x[i] = x[i-1];
-			space->hwv[i] = space->hwv[i-1];
-			space->hpwv[i] = space->hpwv[i-1];
+			hwv[i] = hwv[i-1];
+			hpwv[i] = hpwv[i-1];
 		}
+
 		x[0] = xnew;
-		space->hwv[0] = hnew;
-		space->hpwv[0] = hpnew;
+		hwv[0] = hnew;
+		hpwv[0] = hpnew;
 
 		for(i = *num_x - 2; i > 0; i--)
 		{
-			space->z[i] = space->z[i-1];
+			z[i] = z[i-1];
 		}
 
-		space->z[0] = (space->hwv[1] - space->hwv[0] - x[1]*(space->hpwv[1]) + x[0]*(space->hpwv[0]))/
-				(space->hpwv[0] - space->hpwv[1]);
+		z[0] = (hwv[1] - hwv[0] - x[1]*(hpwv[1]) + x[0]*(hpwv[0]))/
+				(hpwv[0] - hpwv[1]);
 	}
 	else if(l_section == *num_x)
 	{
 		// new sample goes on the "right-hand" end of the vector.
 		x[*num_x] = xnew;
-		space->hwv[*num_x] = hnew;
-		space->hpwv[*num_x] = hpnew;
-		space->z[*num_x - 1] = (space->hwv[*num_x] - space->hwv[*num_x-1] - x[*num_x]*(space->hpwv[*num_x]) +
-				x[*num_x-1]*(space->hpwv[*num_x-1]))/
-				(space->hpwv[*num_x-1] - space->hpwv[*num_x]);
+		hwv[*num_x] = hnew;
+		hpwv[*num_x] = hpnew;
+
+		//compute midpoint
+		z[*num_x - 1] = (hwv[*num_x] - hwv[*num_x-1] - x[*num_x]*(hpwv[*num_x]) +
+				x[*num_x-1]*(hpwv[*num_x-1]))/
+				(hpwv[*num_x-1] - hpwv[*num_x]);
 
 		*num_x = *num_x + 1;
 	}
@@ -365,22 +351,37 @@ int update_hull(double *x, ARS_workspace *space, int *num_x, int nmax,
 		for(i = *num_x - 1; i > l_section - 1; i--)
 		{
 			x[i+1] = x[i];
-			space->hwv[i+1] = space->hwv[i];
-			space->hpwv[i+1] = space->hpwv[i];
+			hwv[i+1] = hwv[i];
+			hpwv[i+1] = hpwv[i];
 		}
-		x[l_section] = xnew;
-		space->hwv[l_section] = hnew;
-		space->hpwv[l_section] = hpnew;
 
+		x[l_section] = xnew;
+		hwv[l_section] = hnew;
+		hpwv[l_section] = hpnew;
+
+		// shift old midpoints to the right
 		for(i = *num_x - 2; i > l_section - 1; i--)
 		{
-			space->z[i+1] = space->z[i];
+			z[i+1] = z[i];
 			//hzwv[i+1] = hzwv[i];
 		}
+
+		// compute new midpoints
 		for(i = l_section - 1; i < l_section + 1; i++)
 		{
-			space->z[i] = (space->hwv[i+1] - space->hwv[i] - x[i+1]*(space->hpwv[i+1]) + x[i]*(space->hpwv[i]))/
-					(space->hpwv[i] - space->hpwv[i+1]);
+			const double x_i = x[i];
+			const double x_ip1 = x[i+1];
+			const double hwv_i = hwv[i];
+			const double hwv_ip1 = hwv[i+1];
+			const double hpwv_i = hpwv[i];
+			const double hpwv_ip1 = hpwv[i+1];
+			double znew;
+
+			znew = (hwv_ip1 - hwv_i - x_ip1*hpwv_ip1 +
+					x_i*hpwv_i)/
+					(hpwv_i - hpwv_ip1);
+
+			z[i] = znew;
 		}
 		*num_x = *num_x + 1;
 	}
@@ -388,126 +389,235 @@ int update_hull(double *x, ARS_workspace *space, int *num_x, int nmax,
 	// need to update the hull-max-value
 	for(i = 0; i < *num_x - 1; i++)
 	{
+		const double x_i = x[i];
+		const double hwv_i = hwv[i];
+		const double hpwv_i = hpwv[i];
+		const double z_i = z[i];
+
 		if(i == 0)
 		{
 			// initialize the search largest y value in outer hull
-			*huzmax = space->hwv[0] - x[0]*(space->hpwv[0]);
+			*huzmax = hwv_i - x_i * hpwv_i;
 		}
+
 		test1 = *huzmax;
-		test2 = (space->hwv[i] + (space->z[i] - x[i])*(space->hpwv[i]));
+		test2 = hwv_i + (z_i - x_i) * hpwv_i;
 		*huzmax = (test1 > test2) ? test1 : test2;
 	}
-	/*
-	Rprintf("Hull updated: \n");
-	for(i = 0; i < *num_x; i++)
-	{
-		Rprintf("i = %d, x = %.3lf, hpwv = %.3lf, hwv = %.3lf \n",
-				i, x[i], hpwv[i], hwv[i]);
-	}
-	for(i = 0; i < *num_x - 1; i++)
-	{
-		Rprintf("z_%d = %lf\n", i, z[i]);
-	}
-	*/
+
 	return(1);
 }
 
 // this function doubles as the quantile function of the outer hull
-double sample_hull(double *x, ARS_workspace *space, int* num_x, int *section, double p, double *huzmax)
+double sample_hull(double* restrict x,
+		ARS_workspace *ws,
+		int* restrict num_x,
+		int* restrict section,
+		double p,
+		double huzmax)
 {
 	int j = 0;
 	double R, y;
+	double a, b, pstar;
+	double logp = log(p);
 
+	double* restrict scum_norm = ws->scum_norm;
+	double* restrict scum = ws->scum;
+	double* restrict hwv = ws->hwv;
+	double* restrict hpwv = ws->hpwv;
+	double* restrict z = ws->z;
 
 	// find which "chunk" we're in. returns the index of the j such that
 	// our sampled x is between z[j-1] and z[j] (z[-1] = 0, z[num_x] = infinity)
-	while(p > space->scum_norm[j])
+	while(logp > scum_norm[j])
 	{
 		j++;
 	}
 
+	const double hwv_j = hwv[j];
+	const double hpwv_j	= hpwv[j];
+	const double x_j = x[j];
+	const double z_j = z[j];
+	const double z_jm1 = z[j - 1];
+	const double scum_max = scum[*num_x - 1];
+	const double scum_jm1 = scum[j-1];
+
+	b = hwv_j - huzmax - hpwv_j*x_j;
+
+
 	if(j == 0)
 	{
-		R = (p*(space->scum[*num_x - 1]))*(space->hpwv[j]) + exp(space->hwv[j] - x[j]*(space->hpwv[j]) - *huzmax);
-		y = (log(R) + *huzmax - space->hwv[j])/(space->hpwv[j]) + x[j];
+	//	R = (p*exp(scum[*num_x - 1]))*(hpwv[j]) + exp(hwv[j] - x[j]*(hpwv[j]) - *huzmax);
+	//	y = (log(R) + *huzmax - hwv[j])/(hpwv[j]) + x[j];
+
+		pstar = p*exp(scum_max);
+		y = (log(pstar*hpwv_j + exp(b)) - b)/hpwv_j;
 	}
 	else
 	{
-		R = (p*(space->scum[*num_x - 1]) - (space->scum[j-1]))*(space->hpwv[j]) +
-				exp(space->hwv[j] + (space->z[j-1] - x[j])*(space->hpwv[j]) - *huzmax);
-		y = (log(R) + *huzmax - space->hwv[j])/(space->hpwv[j]) + x[j];
+//		R = (p*exp(scum[*num_x - 1]) - exp(scum[j-1]))*(hpwv[j]) +
+//				exp(hwv[j] + (z[j-1] - x[j])*(hpwv[j]) - *huzmax);
+//		y = (log(R) + *huzmax - hwv[j])/(hpwv[j]) + x[j];
+
+		pstar = p*exp(scum_max) - exp(scum_jm1);
+		y = (log(pstar * hpwv_j + exp(hpwv_j * z_jm1 + b)) - b)/hpwv_j;
 	}
 
 	*section = j;
-	if(isnan(y))
+	if(isnan(y) || isinf(y) || y <= 0)
 	{
-		Rprintf("hull sample failed R = %lf\n", R);
+		Rprintf("hull sample failed j = %d, p = %.5lf\n", j, p);
+		Rprintf("a = %.3lf, b = %.3lf, pstar = %.3lf\n", hpwv_j, b, pstar);
 	}
 	return(y);
 }
 
-// computes hull normalizing constant and updates chunk cumulative
-// probabilities
-void initialize_hull(double *x, ARS_workspace *space, int* num_x, double *huzmax)
+// computes hull normalizing constant and updates cumulative
+// probabilities by hull section
+void initialize_hull(double* restrict x,
+		ARS_workspace *ws,
+		int num_x,
+		double huzmax)
 {
 	// compute the integrals for the upper hull sections.
 	int i;
-	for(i = 0; i < *num_x; i++)
+	double tmp;
+	double* restrict hpwv = ws->hpwv;
+	double* restrict hwv = ws->hwv;
+	double* restrict z = ws->z;
+	double* restrict s = ws->s;
+	double* restrict scum = ws->scum;
+	double* restrict scum_norm = ws->scum_norm;
+
+	for(i = 0; i < num_x; i++)
 	{
+		const double hpwv_i = hpwv[i];
+		const double hwv_i = hwv[i];
+		const double z_i = z[i];
+		const double z_im1 = z[i - 1];
+		const double x_i = x[i];
+
+		double snew;
 		// first and last chambers are special cases.
+		// get the log of the integral from z[i-1] to z[i] under the hull
 		if(i == 0)
 		{
-			space->s[i] = (exp(space->hwv[i] + (space->z[i] - x[i])*(space->hpwv[i]) - *huzmax) -
-					exp(space->hwv[0] - x[0]*(space->hpwv[0]) - *huzmax)) / (space->hpwv[i]);
-			space->scum[i] = space->s[i];
-		}
 
-		else if(i == *num_x - 1)
+			if(hpwv_i > 0)
+			{
+				snew = (hwv_i + (z_i- x_i)*hpwv_i - huzmax) +
+						log1p(-1.0*exp(-1.0*z_i*hpwv_i)) - log(hpwv_i);
+			}
+
+			else
+			{
+				snew = (hwv_i - x_i*hpwv_i - huzmax) +
+						log1p(-1.0*exp(z_i*hpwv_i)) - log(fabs(hpwv_i));
+			}
+			s[i] = snew;
+			scum[i] = snew;
+		}
+		// last chamber
+		else if(i == num_x - 1)
 		{
-			space->s[i] = -1.0*exp(space->hwv[i] + (space->z[i-1] - x[i])*(space->hpwv[i]) - *huzmax)/(space->hpwv[i]);
-			space->scum[i] = space->scum[i-1] + space->s[i];
+			snew = (hwv_i + (z_im1 - x_i) * hpwv_i - huzmax) -
+					log(fabs(hpwv_i));
+			scum[i] = log_apb(scum[i-1], snew);
+			s[i] = snew;
 		}
 
+		// middle chambers
 		else
 		{
-			space->s[i] = (exp(space->hwv[i] + (space->z[i] - x[i])*(space->hpwv[i]) - *huzmax) -
-					exp(space->hwv[i] + (space->z[i-1] - x[i])*(space->hpwv[i]) - *huzmax))/(space->hpwv[i]);
-			space->scum[i] = space->scum[i-1] + space->s[i];
+			if(hpwv_i > 0)
+			{
+				snew = (hwv_i + (z_i - x_i)*(hpwv_i) - huzmax) +
+						log1p(-1.0*exp((z_im1 - z_i)*hpwv_i)) -
+						 log(hpwv_i);
+				s[i] = snew;
+			}
+
+			else if(hpwv_i < 0)
+			{
+				snew = (hwv_i + (z_im1 - x_i)*(hpwv_i) - huzmax) +
+						log1p(-1.0*exp((z_i - z_im1)*hpwv_i)) -
+						log(fabs(hpwv_i));
+				s[i] = snew;
+			}
+			// tangent is zero
+			else
+			{
+				snew = log(z_i - z_im1) + hwv_i - huzmax;
+				s[i] = snew;
+			}
+
+			scum[i] = log_apb(scum[i-1], snew);
 		}
 	}
 
 	// normalize the cumulative values
-	for(i = 0; i < *num_x; i++)
+	for(i = 0; i < num_x; i++)
 	{
-		space->scum_norm[i] = (space->scum[i])/(space->scum[*num_x - 1]);
+		scum_norm[i] = (scum[i]) - (scum[num_x - 1]);
 	}
 	return;
 }
 
-
-// h is the log-density of our target distribution
-double h(double x, double S_j, double c, double R)
+void print_hull(double *x, ARS_workspace *ws, int *num_x)
 {
-	double out;
-	out = -1.0*x*R + S_j*lgamma(x + c) - S_j*lgamma(x) + R;
-
-	//gamma test distribution
-//	  out = .001*log(x) - x/.1;
-	return(out);
+	int i;
+	for(i = 0; i < *num_x; i++)
+	{
+		Rprintf("i = %d, x = %.3lf, scum = %.3lf, scum_norm = %.3lf, hpwv = %.3lf, hwv = %.3lf,"
+				"s = %.3lf \n",
+				i, x[i], ws->scum[i], ws->scum_norm[i], ws->hpwv[i], ws->hwv[i], ws->s[i]);
+	}
+	for(i = 0; i < *num_x - 1; i++)
+	{
+		Rprintf("z_%d = %lf\n", i, ws->z[i]);
+	}
+	return;
 }
 
-double h_prime(double x, double S_j, double c, double R)
+// check that the sampler gave a valid sample x_samp
+void check_sample(double x_samp, double *x, ARS_workspace *ws, int *num_x)
 {
-	double out;
-	out = -1.0*R + S_j*gsl_sf_psi(x + c) - S_j*gsl_sf_psi(x);
+	int i;
 
-	//gamma test distribution, derivative.
-//	out = .001/x - 10.0;
-	return(out);
+	if(isnan(x_samp) || isinf(x_samp) || (x_samp <= 0.0))
+	{
+		for(i = 0; i < *num_x; i++)
+		{
+			Rprintf("i = %d, x = %.3lf, scum = %.3lf, scum_norm = %.3lf, hpwv = %.3lf, hwv = %.3lf,"
+					"s = %.3lf \n",
+					i, x[i], ws->scum[i], ws->scum_norm[i], ws->hpwv[i], ws->hwv[i], ws->s[i]);
+		}
+		for(i = 0; i < *num_x - 1; i++)
+		{
+			Rprintf("z_%d = %lf\n", i, ws->z[i]);
+		}
+		Rprintf("x_samp = %lf \n", x_samp);
+		error("invalid x sample in function ARS\n");
+	}
+	return;
 }
 
+//Return log(a+b) from log(a) and log(b)
+double log_apb(double loga, double logb)
+{
+	double tmp_diff = loga - logb;
 
+	if(tmp_diff > 0)
+	{
+		return(loga + log1p(exp(-tmp_diff)));
+	}
+	else if(tmp_diff <= 0)
+	{
+		return(logb + log1p(exp(tmp_diff)));
+	}
+	else
+	{
+		return(loga + logb);
+	}
 
-
-
-
+}
