@@ -37,6 +37,24 @@
 
 #define ZZERO 2.0e-308
 
+double lc_AB(double x, double *argvec);
+
+double lcp_AB(double x, double *argvec);
+
+double lc_AB(double x, double *argvec)
+{
+	double out;
+	out = -1.0*x*argvec[2] + argvec[0]*lgamma(x + argvec[1]) - argvec[0]*lgamma(x) + argvec[2];
+	return(out);
+}
+
+double lcp_AB(double x, double *argvec)
+{
+	double out;
+	out = -1.0*argvec[2] + argvec[0]*gsl_sf_psi(x + argvec[1]) - argvec[0]*gsl_sf_psi(x);
+	return(out);
+}
+
 //________________store prob_include_____________//
 void store_prob_include(int *n_iter, int *n_snps, int *n_genes, int** ProbSum, double* outProbs)
 {
@@ -66,20 +84,26 @@ void update_prob_include(int* n_snps, int* n_genes, int** Gamma, int** ProbSum)
 }
 
 
-int update_pos_j(double* P, double* A, double* B, double* C, double** W, int** Gamma,
+int update_pos_j(double* P, double* A, double* B, double* C, double** W_Logit,
+		int** W_Ind, int** Gamma,
 		int j, double* a_0, double* b_0, double* lambda_a, double* lambda_b,
 		int* n_snps, int* n_genes, int* n_indivs, RngStream rng, int nmax,
 		double *xA, double *xB, ARS_workspace *workspace, double eps)
 {
 	int S_j = 0;
 	int g, num_x = 2;
+	double argvec[3];
 	double s_log_w = 0.0, s_log_1minus_w = 0.0, ratio;
 	double R = 0.0;
+	double logp, log1mp;
+
+	int* restrict W_Ind_j = W_Ind[j];
+	double* restrict W_Logit_j = W_Logit[j];
 
 	// count the number of genes turned on for snp j
 	for(g = 0; g < *n_genes; g++)
 	{
-		S_j += (int)(W[j][g] > ZZERO);
+		S_j += W_Ind_j[g];
 	}
 
 	if(S_j == 0)
@@ -93,17 +117,21 @@ int update_pos_j(double* P, double* A, double* B, double* C, double** W, int** G
 		// update a_j and b_j using ARS; need these quantities
 		for(g = 0; g < *n_genes; g++)
 		{
-			if(W[j][g] >= ZZERO)
+			if(W_Ind_j[g] == 1)
 			{
-				s_log_w += log(W[j][g]);
-			}
-			if((W[j][g] >= ZZERO) & ((1.0 - W[j][g]) > ZZERO))
-			{
-				s_log_1minus_w += log(1.0 - W[j][g]);
+				const double wlogit = W_Logit_j[g];
+				logp = log_from_logit(wlogit);
+				log1mp = logp - wlogit;
+				s_log_w += logp;
+				s_log_1minus_w += log1mp;
 			}
 		}
 		R = (*lambda_a - s_log_w);
-		A[j] = sample_conditional(xA, &num_x, nmax, (double)S_j, B[j], R, workspace, rng, eps);
+		argvec[0] = (double) S_j;
+		argvec[2] = R;
+		argvec[1] = B[j];
+
+		A[j] = sample_conditional(xA, &num_x, nmax, argvec, workspace, rng, eps, lc_AB, lcp_AB);
 
 		if(A[j] == -1.0)
 		{
@@ -112,11 +140,15 @@ int update_pos_j(double* P, double* A, double* B, double* C, double** W, int** G
 
 		num_x = 2;
 		R = (*lambda_b - s_log_1minus_w);
-		B[j] = sample_conditional(xB, &num_x, nmax, (double)S_j, A[j], R, workspace, rng, eps);
+		argvec[2] = R;
+		argvec[1] = A[j];
+
+		B[j] = sample_conditional(xB, &num_x, nmax, argvec, workspace, rng, eps, lc_AB, lcp_AB);
 		if(B[j] == -1.0)
 		{
 			return(0);
 		}
+
 	}
 
 	P[j] = RngStream_Beta(*a_0 + (double)(*n_genes - S_j), *b_0 + (double)(S_j), rng);
@@ -132,12 +164,13 @@ int update_pos_j(double* P, double* A, double* B, double* C, double** W, int** G
 
 		if(RngStream_RandU01(rng) <= ratio)
 		{
-			W[j][g] = 0.0;
+			W_Ind_j[g] = 0;
 		}
 		else
 		{
-			W[j][g] = RngStream_Beta(A[j] + (double)(Gamma[j][g]),
+			W_Logit_j[g] = RngStream_LogitBeta(A[j] + (double)(Gamma[j][g]),
 					B[j] + 1.0 - (double)(Gamma[j][g]), rng);
+			W_Ind_j[g] = 1;
 		}
 	}
 	return(1);
@@ -179,10 +212,23 @@ void set_prior(double* lambda_a, double* lambda_b, double* a_0, double* b_0, dou
 	return;
 }
 
-void initialize_parms(m_el **Beta, int** Gamma, double** W, int** ProbSum, double **xA, double **xB,
-		double* A, double* B, double* C, double* P, double* Mu, double* Sig2,
+void initialize_parms(
+		m_el **Beta,
+		int** Gamma,
+		double** W_Logit,
+		int** W_Ind,
+		int** ProbSum,
+		double **xA, double **xB,
+		double* A,
+		double* B,
+		double* C,
+		double* P,
+		double* Mu,
+		double* Sig2,
 		double* expr_means, double* expr_vars, double* alpha2_beta,
-		double* lambda_a, double* a_0, double* lambda_b, double* b_0, double* tau_0,
+		double* lambda_a, double* a_0,
+		double* lambda_b, double* b_0,
+		double* tau_0,
 		int* n_snps, int* n_genes, int* n_indivs, int* nmax, RngStream rng)
 {
 	int j, g;
@@ -205,11 +251,13 @@ void initialize_parms(m_el **Beta, int** Gamma, double** W, int** ProbSum, doubl
 			ProbSum[j][g] = 0;
 			if(RngStream_RandU01(rng) <= P[j])
 			{
-				W[j][g] = 0.0;
+				W_Ind[j][g] = 0;
+				W_Logit[j][g] = 0.0;
 			}
 			else
 			{
-				W[j][g] = RngStream_Beta(A[j], B[j], rng);
+				W_Ind[j][g] = 1;
+				W_Logit[j][g] = RngStream_LogitBeta(A[j], B[j], rng);
 			}
 		}
 
@@ -226,19 +274,30 @@ void initialize_parms(m_el **Beta, int** Gamma, double** W, int** ProbSum, doubl
 		double x;
 		for(g = 0; g < *n_genes; g++)
 		{
-			if(RngStream_RandU01(rng) <= W[j][g])
+			if(W_Ind[j][g] == 1)
 			{
-				Gamma[j][g] = 1;
-				x = Sig2[g]*alpha2_beta[j]*C[g];
-				SV_add_el(Beta[g], j, RngStream_N01(rng)*sqrt(x));
+				if(RngStream_RandU01(rng) <= expit(W_Logit[j][g]))
+				{
+					Gamma[j][g] = 1;
+					x = Sig2[g]*alpha2_beta[j]*C[g];
+					SV_add_el(Beta[g], j, RngStream_N01(rng)*sqrt(x));
+				}
+				else
+				{
+					Gamma[j][g] = 0;
+				}
 			}
+
 			else
 			{
 				Gamma[j][g]= 0;
+			}
+			if(W_Ind[j][g] == 0 & Gamma[j][g]== 1)
+			{
+				Rprintf("W_ind = %d, Gam = %d\n", W_Ind[j][g], Gamma[j][g]);
 			}
 		}
 	}
 	return;
 }
-
 
