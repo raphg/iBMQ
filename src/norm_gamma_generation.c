@@ -48,10 +48,16 @@
  * generator used in the iBMQ code for eQTL mapping, rather than GSL routines.
  */
 
-
+#include <R.h>
+#include <Rinterface.h>
+#include <R_ext/Error.h>
 #include <math.h>
 #include "RngStream.h"
 #include "norm_gamma_generation.h"
+#include <float.h>
+
+
+#define expmax	(DBL_MAX_EXP * M_LN2)/* = log(DBL_MAX) */
 
 /* position of right-most step */
 #define PARAM_R 3.44428647676
@@ -257,10 +263,172 @@ RngStream_GA1 (const double a, RngStream r)
   }
 }
 
-double RngStream_Beta(const double a, const double b, RngStream r)
+/*
+void beta_test(double *a, double *b, int *n, double *out)
 {
-	double x, y;
-	x = RngStream_GA1(a, r);
-	y = RngStream_GA1(b, r);
-	return x / (x + y);
+	RngStream rng;
+	rng = RngStream_CreateStream("");
+	int i;
+
+	for(i = 0; i < *n; i++)
+	{
+		out[i] = RngStream_Beta(*a, *b, rng);
+	}
+
+	RngStream_DeleteStream(rng);
+	return;
 }
+*/
+
+double RngStream_Beta(double aa, double bb, RngStream rng)
+{
+    double a, b, alpha;
+    double r, s, t, u1, u2, v, w, y, z;
+
+    int qsame;
+    /* FIXME:  Keep Globals (properly) for threading */
+    /* Uses these GLOBALS to save time when many rv's are generated : */
+    static double beta, gamma, delta, k1, k2;
+    static double olda = -1.0;
+    static double oldb = -1.0;
+
+    if (aa <= 0. || bb <= 0. || (isinf(aa) && isinf(bb)))
+    {
+		error("Invalid parameters to beta distribution\n");
+    }
+
+    if (isinf(aa))
+    	return 1.0;
+
+    if (isinf(bb))
+    	return 0.0;
+
+    /* Test if we need new "initializing" */
+    qsame = (olda == aa) && (oldb == bb);
+    if (!qsame) { olda = aa; oldb = bb; }
+
+    a = fmin(aa, bb);
+    b = fmax(aa, bb); /* a <= b */
+    alpha = a + b;
+
+#define v_w_from__u1_bet(AA) 			\
+	    v = beta * log(u1 / (1.0 - u1));	\
+	    if (v <= expmax) {			\
+		w = AA * exp(v);		\
+		if(isinf(w)) w = DBL_MAX;	\
+	    } else				\
+		w = DBL_MAX
+
+    if (a <= 1.0) {	/* --- Algorithm BC --- */
+
+	/* changed notation, now also a <= b (was reversed) */
+
+	if (!qsame) { /* initialize */
+	    beta = 1.0 / a;
+	    delta = 1.0 + b - a;
+	    k1 = delta * (0.0138889 + 0.0416667 * a) / (b * beta - 0.777778);
+	    k2 = 0.25 + (0.5 + 0.25 / delta) * a;
+	}
+	/* FIXME: "do { } while()", but not trivially because of "continue"s:*/
+	for(;;) {
+	    u1 = RngStream_RandU01(rng);
+	    u2 = RngStream_RandU01(rng);
+	    if (u1 < 0.5) {
+		y = u1 * u2;
+		z = u1 * y;
+		if (0.25 * u2 + z - y >= k1)
+		    continue;
+	    } else {
+		z = u1 * u1 * u2;
+		if (z <= 0.25) {
+		    v_w_from__u1_bet(b);
+		    break;
+		}
+		if (z >= k2)
+		    continue;
+	    }
+
+	    v_w_from__u1_bet(b);
+
+	    if (alpha * (log(alpha / (a + w)) + v) - 1.3862944 >= log(z))
+		break;
+	}
+	return (aa == a) ? a / (a + w) : w / (a + w);
+
+    }
+    else {		/* Algorithm BB */
+
+	if (!qsame) { /* initialize */
+	    beta = sqrt((alpha - 2.0) / (2.0 * a * b - alpha));
+	    gamma = a + 1.0 / beta;
+	}
+	do {
+	    u1 = RngStream_RandU01(rng);
+	    u2 = RngStream_RandU01(rng);
+
+	    v_w_from__u1_bet(a);
+
+	    z = u1 * u1 * u2;
+	    r = gamma * v - 1.3862944;
+	    s = a + r - w;
+	    if (s + 2.609438 >= 5.0 * z)
+		break;
+	    t = log(z);
+	    if (s > t)
+		break;
+	}
+	while (r + alpha * log(alpha / (b + w)) < t);
+
+	return (aa != a) ? b / (b + w) : w / (b + w);
+    }
+}
+
+double RngStream_LogitBeta(double a, double b, RngStream rng)
+{
+	double x,top,bot;
+	if(a < .25)
+	{
+		top = (1.0/a)*log(RngStream_RandU01(rng)) + log(RngStream_GA1(1.0 + a,rng));
+	}
+	else
+	{
+		top = log(RngStream_GA1(a, rng));
+	}
+
+	if(b < .25)
+	{
+		bot = (1.0/b)*log(RngStream_RandU01(rng)) + log(RngStream_GA1(1.0 + b,rng));
+	}
+	else
+	{
+		bot = log(RngStream_GA1(b, rng));
+	}
+
+	x = top - bot;
+
+	if(isinf(x) || isnan(x))
+	{
+		Rprintf("a = %.5lf, b = %.5lf, invalid sample value in logit_beta sampler\n", a, b);
+		error("error sampling logit-beta\n");
+	}
+
+	return(x);
+}
+
+// test function for LogitBeta
+void rlogit(double *out, double *a, double *b, int *n)
+{
+	RngStream rng;
+	rng = RngStream_CreateStream("");
+
+	int i;
+	for(i = 0; i < *n; i++)
+	{
+		out[i] = RngStream_LogitBeta(*a, *b, rng);
+	}
+	RngStream_DeleteStream(rng);
+	return;
+}
+
+
+
