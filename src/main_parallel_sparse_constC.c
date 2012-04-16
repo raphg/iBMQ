@@ -38,7 +38,8 @@
 
 #define ZZERO 2.0e-308
 
-void update_gene_g_constC(m_el *beta_g, int** Gamma, double** W, gsl_matrix* X, gsl_vector* Y,
+
+void update_gene_g_constC(m_el *beta_g, int** Gamma, double** W_Logit, int** W_Ind, gsl_matrix* X, gsl_vector* Y,
 		double* A, double* B, double* C_g, double* P, double* Mu_g, double* Sig2_g,
 		double* expr_means, double* expr_vars, double* alpha2_beta,
 		double* lambda_a, double* a_0, double* lambda_b, double* b_0, double* tau_0,
@@ -93,7 +94,7 @@ void c_qtl_main_parallel_sparse_constC(double *gene, int *n_indivs, int *n_genes
 	Mufile = fopen("Mufile.txt", "w");
 	Sig2file = fopen("Sig2file.txt", "w");
 
-	//statically workspace for Adaptive Rejection Sampling
+	//statically allocated workspace for Adaptive Rejection Sampling
 	ARS_workspace workspace;
 	*nmax = (*nmax < NMAX) ? *nmax : NMAX;
 
@@ -102,8 +103,7 @@ void c_qtl_main_parallel_sparse_constC(double *gene, int *n_indivs, int *n_genes
 	Beta = malloc(*n_genes*sizeof(m_el*));
 	if(Beta == NULL)
 	{
-		Rprintf("Memory allocation failed, exiting.\n");
-		return;
+		error("Memory allocation failed, exiting.\n");
 	}
 
 	for(g = 0; g < *n_genes; g++)
@@ -111,39 +111,39 @@ void c_qtl_main_parallel_sparse_constC(double *gene, int *n_indivs, int *n_genes
 		Beta[g] = malloc(sizeof(m_el));
 		if(Beta[g] == NULL)
 		{
-			Rprintf("Memory allocation failed, exiting.\n");
-			return;
+			error("Memory allocation failed, exiting.\n");
 		}
 		Beta[g]->next = NULL;
 	}
 
 	// initialize double indexed arrays
-	double **W, **xA, **xB;
-	int **Gamma, **ProbSum;
+	// W_logit holds logit(omega) values
+	double **W_Logit, **xA, **xB;
+	int **Gamma, **ProbSum, **W_Ind;
 
-	W = (double**) malloc(*n_snps*sizeof(double*));
+	W_Logit = (double**) malloc(*n_snps*sizeof(double*));
+	W_Ind = (int**) malloc(*n_snps*sizeof(int*));
 	xA = (double**) malloc(*n_snps*sizeof(double*));
 	xB = (double**) malloc(*n_snps*sizeof(double*));
 	Gamma = (int**) malloc(*n_snps*sizeof(int*));
 	ProbSum = (int**) malloc(*n_snps*sizeof(int*));
 
-	if((W == NULL) || Gamma == NULL || ProbSum == NULL)
+	if((W_Logit == NULL) || Gamma == NULL || ProbSum == NULL || W_Ind == NULL)
 	{
-		Rprintf("Memory allocation failed, exiting.\n");
-		return;
+		error("Memory allocation failed, exiting.\n");
 	}
 
 	for(j = 0; j < *n_snps; j++)
 	{
-		W[j] = (double*) malloc(*n_genes*sizeof(double));
+		W_Logit[j] = (double*) malloc(*n_genes*sizeof(double));
+		W_Ind[j] = (int*) malloc(*n_genes*sizeof(int));
 		xA[j] = (double*) malloc(*nmax*sizeof(double));
 		xB[j] = (double*) malloc(*nmax*sizeof(double));
 		Gamma[j] = (int*) malloc(*n_genes*sizeof(int));
 		ProbSum[j] = (int*) malloc(*n_genes*sizeof(int));
-		if((W[j] == NULL) || Gamma[j] == NULL || ProbSum[j] == NULL)
+		if((W_Logit[j] == NULL) || Gamma[j] == NULL || ProbSum[j] == NULL || W_Ind[j] == NULL)
 		{
-			Rprintf("Memory allocation failed, exiting.\n");
-			return;
+			error("Memory allocation failed, exiting.\n");
 		}
 	}
 
@@ -171,8 +171,7 @@ void c_qtl_main_parallel_sparse_constC(double *gene, int *n_indivs, int *n_genes
 	if(A == NULL || B == NULL || P == NULL || C == NULL || Mu == NULL || Sig2 == NULL ||
 			expr_means == NULL || expr_vars == NULL || alpha2_beta == NULL)
 	{
-		Rprintf("Memory allocation failed, exiting.\n");
-		return;
+		error("Memory allocation failed, exiting.\n");
 	}
 
 	// cheesy but effective
@@ -216,7 +215,7 @@ void c_qtl_main_parallel_sparse_constC(double *gene, int *n_indivs, int *n_genes
 	set_prior(lambda_a, lambda_b, a_0, b_0, tau_0, expr_means, expr_vars, alpha2_beta, X, Y, rngs[0]);
 
 	//initialize all parameters to begin MCMC
-	initialize_parms(Beta,  Gamma,  W, ProbSum, xA, xB,
+	initialize_parms(Beta,  Gamma,  W_Logit, W_Ind, ProbSum, xA, xB,
 			A, B, C, P, Mu, Sig2,
 			expr_means, expr_vars, alpha2_beta,
 			lambda_a, a_0, lambda_b, b_0, tau_0,
@@ -245,7 +244,7 @@ void c_qtl_main_parallel_sparse_constC(double *gene, int *n_indivs, int *n_genes
 			for(g = 0; g < *n_genes; g++)
 			{
 				Y_g = gsl_matrix_column(Y, g);
-				update_gene_g_constC(Beta[g], Gamma, W, X, &Y_g.vector, A, B, &(C[g]), P, &(Mu[g]), &(Sig2[g]),
+				update_gene_g_constC(Beta[g], Gamma, W_Logit, W_Ind, X, &Y_g.vector, A, B, &(C[g]), P, &(Mu[g]), &(Sig2[g]),
 						expr_means, expr_vars, alpha2_beta, lambda_a, a_0, lambda_b, b_0,
 						tau_0, n_snps, n_genes, n_indivs, g, one, rngs[th_id]);
 			}
@@ -253,7 +252,7 @@ void c_qtl_main_parallel_sparse_constC(double *gene, int *n_indivs, int *n_genes
 			#pragma omp for nowait
 			for(j = 0; j < *n_snps; j++)
 			{
-				update_pos_j(P, A, B, C, W, Gamma,
+				update_pos_j(P, A, B, C, W_Logit, W_Ind, Gamma,
 						j, a_0, b_0, lambda_a, lambda_b,
 						n_snps, n_genes, n_indivs, rngs[th_id], *nmax,
 						xA[j], xB[j], &workspace, *eps);
@@ -294,14 +293,16 @@ void c_qtl_main_parallel_sparse_constC(double *gene, int *n_indivs, int *n_genes
 
 	for(j = 0; j < *n_snps; j++)
 	{
-		free(W[j]);
+		free(W_Ind[j]);
+		free(W_Logit[j]);
 		free(Gamma[j]);
 		free(ProbSum[j]);
 		free(xA[j]);
 		free(xB[j]);
 	}
 
-	free(W);
+	free(W_Ind);
+	free(W_Logit);
 	free(Gamma);
 	free(ProbSum);
 	free(xA);
@@ -321,7 +322,8 @@ void c_qtl_main_parallel_sparse_constC(double *gene, int *n_indivs, int *n_genes
 	return;
 }
 
-void update_gene_g_constC(m_el* beta_g, int** Gamma, double** W, gsl_matrix* X, gsl_vector* Y_g,
+void update_gene_g_constC(m_el* beta_g, int** Gamma, double** W_Logit, int** W_Ind,
+		gsl_matrix* X, gsl_vector* Y_g,
 		double* A, double* B, double* C_g, double* P, double* Mu_g, double* Sig2_g,
 		double* expr_means, double* expr_vars, double* alpha2_beta,
 		double* lambda_a, double* a_0, double* lambda_b, double* b_0, double* tau_0,
@@ -339,10 +341,11 @@ void update_gene_g_constC(m_el* beta_g, int** Gamma, double** W, gsl_matrix* X, 
 	gsl_vector* Resid_minus_j = gsl_vector_calloc(*n_indivs);
 	int i, j, cur;
 	double S_j, v1, v2, p1, w_jg, temp;
+	const double Cg = *C_g;
 
 	// X %*% B_g   (fitted expression values for gene g), using the sparse representation of beta
 	SV_gsl_dmvpy(X, beta_g, Xbeta_sum_g->data, *n_indivs);
-	v1 = 1.0/sqrt(1.0 + (*C_g));
+	v1 = 1.0/sqrt(1.0 + (Cg));
 
 	for(j = 0; j < *n_snps; j++)
 	{
@@ -359,12 +362,13 @@ void update_gene_g_constC(m_el* beta_g, int** Gamma, double** W, gsl_matrix* X, 
 		//calculates sum of x values times residuals, without j'th value
 		gsl_blas_ddot(&X_j.vector, Resid_minus_j, &S_j);
 
-		v2 = alpha2_beta[j]*(*C_g)/(1.0 + (*C_g));
+		v2 = alpha2_beta[j]*(Cg)/(1.0 + (Cg));
 		p1=v1*exp(0.5*v2*pow(S_j,2)/(*Sig2_g));
-		w_jg = W[j][g];
+
+		w_jg = (W_Ind[j][g] == 1) ? expit(W_Logit[j][g]) : 0.0;
 
 		// update gammas
-		cur = (int)(RngStream_RandU01(rng) <= w_jg*p1/(1 - w_jg + w_jg*p1));
+		cur = (int)(RngStream_RandU01(rng) <= w_jg*p1/(1.0 - w_jg + w_jg*p1));
 
 		// update betas
 		if(Gamma[j][g] == 1 && cur == 0)
@@ -379,7 +383,8 @@ void update_gene_g_constC(m_el* beta_g, int** Gamma, double** W, gsl_matrix* X, 
 		if(cur == 1)
 		{
 			// now the element beta[j][g] is nonzero, so we simulate it and add it to the list
-			temp = S_j*alpha2_beta[j]*(*C_g)/(1.0 + (*C_g)) + sqrt(v2*(*Sig2_g))*RngStream_N01(rng);
+
+			temp = S_j*alpha2_beta[j]*(Cg)/(1.0 + (Cg)) + sqrt(v2*(*Sig2_g))*RngStream_N01(rng);
 
 			// add element j to the list (if it's already there that's ok, it will just change the value then)
 			SV_add_el(beta_g, j, temp);
@@ -402,7 +407,7 @@ void update_gene_g_constC(m_el* beta_g, int** Gamma, double** W, gsl_matrix* X, 
 			G_g += gsl_pow_2(SV_get(beta_g, j))/alpha2_beta[j];
 		}
 	}
-	G_g = G_g/(*C_g); // (C_g is fixed equal to number of subjects
+	G_g = G_g/(Cg); // (C_g is fixed equal to number of subjects
 
 	for(i = 0; i < *n_indivs; i++)
 	{
