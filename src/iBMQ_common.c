@@ -37,21 +37,38 @@
 
 #define ZZERO 2.0e-308
 
-double lc_AB(double x, double *argvec);
+double lc_AB(const double x, const double *argvec);
 
-double lcp_AB(double x, double *argvec);
+double lcp_AB(const double x, const double *argvec);
 
-double lc_AB(double x, double *argvec)
+double lc_AB(const double x, const double *argvec)
 {
 	double out;
-	out = -1.0*x*argvec[2] + argvec[0]*lgamma(x + argvec[1]) - argvec[0]*lgamma(x) + argvec[2];
+	const double arg0 = argvec[0];
+	const double arg1 = argvec[1];
+	const double arg2 = argvec[2];
+
+	const double A = arg0*lgamma(x);
+	const double B = arg0*lgamma(x + arg1);
+	const double C = -1.0 * x * arg2;
+
+	//out = -1.0*x*argvec[2] + argvec[0]*lgamma(x + argvec[1]) - argvec[0]*lgamma(x);
+	out = C + B - A;
 	return(out);
 }
 
-double lcp_AB(double x, double *argvec)
+double lcp_AB(const double x, const double *argvec)
 {
 	double out;
-	out = -1.0*argvec[2] + argvec[0]*gsl_sf_psi(x + argvec[1]) - argvec[0]*gsl_sf_psi(x);
+	const double arg0 = argvec[0];
+	const double arg1 = argvec[1];
+	const double arg2 = argvec[2];
+
+	const double A = arg0*gsl_sf_psi(x);
+	const double B = arg0*gsl_sf_psi(x + arg1);
+
+	//out = -1.0*argvec[2] + argvec[0]*gsl_sf_psi(x + argvec[1]) - argvec[0]*gsl_sf_psi(x);
+	out = -1.0*arg2 + B - A;
 	return(out);
 }
 
@@ -73,21 +90,27 @@ void store_prob_include(int *n_iter, int *n_snps, int *n_genes, int** ProbSum, d
 void update_prob_include(int* n_snps, int* n_genes, int** Gamma, int** ProbSum)
 {
 	int g,j;
+	int new;
 	for(j = 0; j < *n_snps; j++)
 	{
 		for(g = 0; g < *n_genes; g++)
 		{
-			ProbSum[j][g] += Gamma[j][g];
+			const int ps_jg = ProbSum[j][g];
+			const int g_jg = Gamma[j][g];
+
+			new = ps_jg + g_jg;
+
+			ProbSum[j][g] = new;
 		}
 	}
 	return;
 }
 
 
-int update_pos_j(double* P, double* A, double* B, double* C, double** W_Logit,
-		int** W_Ind, int** Gamma,
+int update_pos_j(double* P, double* A, double* B, double** W_Logit, int** W_Ind,
+		int** Gamma,
 		int j, double* a_0, double* b_0, double* lambda_a, double* lambda_b,
-		int* n_snps, int* n_genes, int* n_indivs, RngStream rng, int nmax,
+		int* n_genes, RngStream rng, int nmax,
 		double *xA, double *xB, ARS_workspace *workspace, double eps)
 {
 	int S_j = 0;
@@ -99,6 +122,11 @@ int update_pos_j(double* P, double* A, double* B, double* C, double** W_Logit,
 
 	int* restrict W_Ind_j = W_Ind[j];
 	double* restrict W_Logit_j = W_Logit[j];
+	const int* Gamma_j = Gamma[j];
+
+	double aj = A[j];
+	double bj = B[j];
+	double pj = P[j];
 
 	// count the number of genes turned on for snp j
 	for(g = 0; g < *n_genes; g++)
@@ -108,8 +136,8 @@ int update_pos_j(double* P, double* A, double* B, double* C, double** W_Logit,
 
 	if(S_j == 0)
 	{
-		A[j] = RngStream_GA1(1.0, rng)/(*lambda_a);
-		B[j] = RngStream_GA1(1.0, rng)/(*lambda_b);
+		aj = RngStream_GA1(1.0, rng)/(*lambda_a);
+		bj = RngStream_GA1(1.0, rng)/(*lambda_b);
 	}
 
 	else
@@ -129,11 +157,11 @@ int update_pos_j(double* P, double* A, double* B, double* C, double** W_Logit,
 		R = (*lambda_a - s_log_w);
 		argvec[0] = (double) S_j;
 		argvec[2] = R;
-		argvec[1] = B[j];
+		argvec[1] = bj;
 
-		A[j] = sample_conditional(xA, &num_x, nmax, argvec, workspace, rng, eps, lc_AB, lcp_AB);
+		aj = sample_conditional(xA, &num_x, nmax, argvec, workspace, rng, eps, lc_AB, lcp_AB);
 
-		if(A[j] == -1.0)
+		if(aj == -1.0)
 		{
 			return(0);
 		}
@@ -141,26 +169,27 @@ int update_pos_j(double* P, double* A, double* B, double* C, double** W_Logit,
 		num_x = 2;
 		R = (*lambda_b - s_log_1minus_w);
 		argvec[2] = R;
-		argvec[1] = A[j];
+		argvec[1] = aj;
 
-		B[j] = sample_conditional(xB, &num_x, nmax, argvec, workspace, rng, eps, lc_AB, lcp_AB);
-		if(B[j] == -1.0)
+		bj = sample_conditional(xB, &num_x, nmax, argvec, workspace, rng, eps, lc_AB, lcp_AB);
+		if(bj == -1.0)
 		{
 			return(0);
 		}
 
 	}
 
-	P[j] = RngStream_Beta(*a_0 + (double)(*n_genes - S_j), *b_0 + (double)(S_j), rng);
+	pj = RngStream_Beta(*a_0 + (double)(*n_genes - S_j), *b_0 + (double)(S_j), rng);
 
 	// update W, row j (going across genes here)
 	double frac;
-	frac = B[j]/(A[j] + B[j]);
+	frac = bj/(aj + bj);
 
 	for(g = 0; g < *n_genes; g++)
 	{
-		ratio = (P[j]*(double)(Gamma[j][g]==0))/
-				(P[j]*(double)(Gamma[j][g]==0) + (1.0 - P[j])*frac);
+		const int GammaJG = Gamma_j[g];
+		ratio = (pj*(double)(GammaJG == 0))/
+				(pj*(double)(GammaJG == 0) + (1.0 - pj)*frac);
 
 		if(RngStream_RandU01(rng) <= ratio)
 		{
@@ -168,11 +197,15 @@ int update_pos_j(double* P, double* A, double* B, double* C, double** W_Logit,
 		}
 		else
 		{
-			W_Logit_j[g] = RngStream_LogitBeta(A[j] + (double)(Gamma[j][g]),
-					B[j] + 1.0 - (double)(Gamma[j][g]), rng);
+			W_Logit_j[g] = RngStream_LogitBeta(aj + (double)(GammaJG),
+					bj + 1.0 - (double)(GammaJG), rng);
 			W_Ind_j[g] = 1;
 		}
 	}
+	A[j] = aj;
+	B[j] = bj;
+	P[j] = pj;
+
 	return(1);
 }
 
@@ -213,7 +246,8 @@ void set_prior(double* lambda_a, double* lambda_b, double* a_0, double* b_0, dou
 }
 
 void initialize_parms(
-		m_el **Beta,
+		ptr_m_el *Beta,
+		ptr_memPool ptr_pool,
 		int** Gamma,
 		double** W_Logit,
 		int** W_Ind,
@@ -234,8 +268,8 @@ void initialize_parms(
 	int j, g;
 	for(g = 0; g < *n_genes; g++)
 	{
-		Mu[g] = expr_means[g] + sqrt(Sig2[g])*RngStream_N01(rng);
 		Sig2[g] = expr_vars[g];
+		Mu[g] = expr_means[g] + sqrt(Sig2[g])*RngStream_N01(rng);
 		C[g] = (double)(*n_indivs);
 	}
 
@@ -271,16 +305,19 @@ void initialize_parms(
 		xA[j][1] = 	2.0;
 		xB[j][1] =  2.0;
 
+		ptr_memChunk ptr_chunk_g;
 		double x;
 		for(g = 0; g < *n_genes; g++)
 		{
+			ptr_chunk_g	 = ptr_pool->array_head[g];
 			if(W_Ind[j][g] == 1)
 			{
 				if(RngStream_RandU01(rng) <= expit(W_Logit[j][g]))
 				{
 					Gamma[j][g] = 1;
 					x = Sig2[g]*alpha2_beta[j]*C[g];
-					SV_add_el(Beta[g], j, RngStream_N01(rng)*sqrt(x));
+					SV_add_el(Beta[g], j, RngStream_N01(rng)*sqrt(x),
+							ptr_chunk_g);
 				}
 				else
 				{
