@@ -270,7 +270,7 @@ void initialize_parms(
 	{
 		Sig2[g] = expr_vars[g];
 		Mu[g] = expr_means[g] + sqrt(Sig2[g])*RngStream_N01(rng);
-		C[g] = (double)(*n_indivs);
+		C[g] = (double)(*n_snps);
 	}
 
 	for(j = 0; j < *n_snps; j++)
