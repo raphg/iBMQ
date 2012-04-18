@@ -3,7 +3,6 @@
  *
  *  Created on: Oct 13, 2011
  *      Author: Gregory Imholte
- *  Last Editted: Oct 17, 2011
  */
 
 #include <R.h>
@@ -38,21 +37,16 @@
 
 #define ZZERO 2.0e-308
 
-
-void update_gene_g_constC(m_el *beta_g, int** Gamma, double** W_Logit, int** W_Ind, gsl_matrix* X, gsl_vector* Y,
-		double* A, double* B, double* C_g, double* P, double* Mu_g, double* Sig2_g,
-		double* expr_means, double* expr_vars, double* alpha2_beta,
-		double* lambda_a, double* a_0, double* lambda_b, double* b_0, double* tau_0,
-		int* n_snps, int* n_genes, int* n_indivs, int g, gsl_vector* one, RngStream rng);
+void update_gene_g_constC(ptr_m_el beta_g, int** Gamma, double** W_Logit,
+		int** W_Ind, gsl_matrix* X, const gsl_vector* Y_g,
+		double* C_g, double* Mu_g, double* Sig2_g,
+		const double* expr_means, const double* expr_vars, const double* alpha2_beta,
+		int* n_snps, int* n_genes, int* n_indivs, int g, const gsl_vector* one, RngStream rng,
+		ptr_memChunk ptr_chunk_g);
 
 void store_mcmc_output_constC(FILE *Afile, FILE *Bfile, FILE *Pfile, FILE *Mufile, FILE *Sig2file,
-		int *n_snps, int *n_genes, double* A, double* B, double* P, double* Mu, double* Sig2);
-
-/*
-void c_qtl_main_parallel_sparse_constC(double *gene, int *n_indivs, int *n_genes, double *snp,
-		int *n_snps, int *n_iter, int *burn_in, int *n_sweep, double *outProbs, int *nP, int *nmax,
-		double *eps);
-*/
+		int *n_snps, int *n_genes, double* restrict A, double* restrict B, double* restrict P,
+		double* restrict Mu, double* restrict Sig2);
 
 void c_qtl_main_parallel_sparse_constC(double *gene, int *n_indivs, int *n_genes, double *snp,
 		int *n_snps, int *n_iter, int *burn_in, int *n_sweep, double *outProbs, int *nP, int *nmax,
@@ -61,15 +55,22 @@ void c_qtl_main_parallel_sparse_constC(double *gene, int *n_indivs, int *n_genes
 	/* Structures to hold various parameters.
 	 *
 	 * When possible variable names are analogous to those found in the paper */
+	int iter, i, j, g, th_id = 0;
 
+	// initialize a memory pool for linked list elements of the sparse matrix;
+	// it's way bigger than it needs to be, just to be on the safe side,
+	// and to facilitate a more simple implementation.
 
-	int iter, i, j, g, th_id = 0, kill = 0;
+	memPool pool;
+	ptr_memPool ptr_pool = &pool;
 
 	/* copying the elements of snp, gene, to matricies. R is column-major
 	 * and GSL is row-major, so we send to a matrix and then
 	 * transpose it to get a GSL representation of the same matrix.
 	 */
 	R_CStackLimit = (uintptr_t)-1;
+
+	initializePool(*n_genes, (*n_snps+2), ptr_pool);
 
 	gsl_matrix* Y_t = gsl_matrix_calloc(*n_genes, *n_indivs);
 	gsl_matrix* Y = gsl_matrix_calloc(*n_indivs, *n_genes);
@@ -99,8 +100,8 @@ void c_qtl_main_parallel_sparse_constC(double *gene, int *n_indivs, int *n_genes
 	*nmax = (*nmax < NMAX) ? *nmax : NMAX;
 
 	// initialize linked list for beta parameters
-	m_el **Beta;
-	Beta = malloc(*n_genes*sizeof(m_el*));
+	ptr_m_el *Beta;
+	Beta = (ptr_m_el*) malloc(*n_genes*sizeof(ptr_m_el));
 	if(Beta == NULL)
 	{
 		error("Memory allocation failed, exiting.\n");
@@ -150,7 +151,6 @@ void c_qtl_main_parallel_sparse_constC(double *gene, int *n_indivs, int *n_genes
 	// initialize single indexed arrays
 	double *A, *B, *C, *P, *Mu, *Sig2, *expr_means, *expr_vars, *alpha2_beta;
 	double *Astart, *Bstart;
-	int *test;
 
 	A = (double*)malloc(*n_snps*sizeof(double));
 	B = (double*)malloc(*n_snps*sizeof(double));;
@@ -158,7 +158,6 @@ void c_qtl_main_parallel_sparse_constC(double *gene, int *n_indivs, int *n_genes
 	C = (double*)malloc(*n_genes*sizeof(double));
 	Mu = (double*)malloc(*n_genes*sizeof(double));
 	Sig2 = (double*)malloc(*n_genes*sizeof(double));
-	test = (int*)malloc(*n_snps*sizeof(int));
 
 	//empirical mean and variance of gene expression
 	expr_means = (double*)malloc(*n_genes*sizeof(double));
@@ -215,7 +214,7 @@ void c_qtl_main_parallel_sparse_constC(double *gene, int *n_indivs, int *n_genes
 	set_prior(lambda_a, lambda_b, a_0, b_0, tau_0, expr_means, expr_vars, alpha2_beta, X, Y, rngs[0]);
 
 	//initialize all parameters to begin MCMC
-	initialize_parms(Beta,  Gamma,  W_Logit, W_Ind, ProbSum, xA, xB,
+	initialize_parms(Beta, ptr_pool, Gamma,  W_Logit, W_Ind, ProbSum, xA, xB,
 			A, B, C, P, Mu, Sig2,
 			expr_means, expr_vars, alpha2_beta,
 			lambda_a, a_0, lambda_b, b_0, tau_0,
@@ -225,6 +224,7 @@ void c_qtl_main_parallel_sparse_constC(double *gene, int *n_indivs, int *n_genes
 	gsl_vector_view Y_g;
 	gsl_vector* one = gsl_vector_calloc(*n_indivs);
 	gsl_vector_set_all(one, 1.0);
+	ptr_memChunk chunk_g;
 
 	Rprintf("initialization successful\n");
 	for(iter=0; iter <= (*burn_in+(*n_sweep)*(*n_iter)); iter++)
@@ -236,7 +236,7 @@ void c_qtl_main_parallel_sparse_constC(double *gene, int *n_indivs, int *n_genes
 		//if the user wants to interrupt computation (^C)
 		R_CheckUserInterrupt();
 
-		#pragma omp parallel private(th_id, Y_g, workspace) num_threads(*nP)
+		#pragma omp parallel private(th_id, Y_g, workspace, chunk_g) num_threads(*nP)
 		{
 			th_id = omp_get_thread_num();
 
@@ -244,17 +244,19 @@ void c_qtl_main_parallel_sparse_constC(double *gene, int *n_indivs, int *n_genes
 			for(g = 0; g < *n_genes; g++)
 			{
 				Y_g = gsl_matrix_column(Y, g);
-				update_gene_g_constC(Beta[g], Gamma, W_Logit, W_Ind, X, &Y_g.vector, A, B, &(C[g]), P, &(Mu[g]), &(Sig2[g]),
-						expr_means, expr_vars, alpha2_beta, lambda_a, a_0, lambda_b, b_0,
-						tau_0, n_snps, n_genes, n_indivs, g, one, rngs[th_id]);
+				chunk_g = ptr_pool->array_head[g];
+				update_gene_g_constC(Beta[g], Gamma, W_Logit, W_Ind, X,
+						&Y_g.vector, &(C[g]), &(Mu[g]), &(Sig2[g]),
+						expr_means, expr_vars, alpha2_beta,
+						n_snps, n_genes, n_indivs, g, one, rngs[th_id], chunk_g);
 			}
 
 			#pragma omp for nowait
 			for(j = 0; j < *n_snps; j++)
 			{
-				update_pos_j(P, A, B, C, W_Logit, W_Ind, Gamma,
+				update_pos_j(P, A, B, W_Logit, W_Ind, Gamma,
 						j, a_0, b_0, lambda_a, lambda_b,
-						n_snps, n_genes, n_indivs, rngs[th_id], *nmax,
+						n_genes, rngs[th_id], *nmax,
 						xA[j], xB[j], &workspace, *eps);
 			}
 		}
@@ -275,7 +277,7 @@ void c_qtl_main_parallel_sparse_constC(double *gene, int *n_indivs, int *n_genes
 
 	for(g = 0; g < *n_genes; g++)
 	{
-		SV_free(Beta[g]);
+		free(Beta[g]);
 	}
 
 	free(Beta);
@@ -307,6 +309,7 @@ void c_qtl_main_parallel_sparse_constC(double *gene, int *n_indivs, int *n_genes
 	free(ProbSum);
 	free(xA);
 	free(xB);
+	deletePool(ptr_pool);
 
 	for(i = 0; i < *nP; i++)
 	{
@@ -322,14 +325,14 @@ void c_qtl_main_parallel_sparse_constC(double *gene, int *n_indivs, int *n_genes
 	return;
 }
 
-void update_gene_g_constC(m_el* beta_g, int** Gamma, double** W_Logit, int** W_Ind,
-		gsl_matrix* X, gsl_vector* Y_g,
-		double* A, double* B, double* C_g, double* P, double* Mu_g, double* Sig2_g,
-		double* expr_means, double* expr_vars, double* alpha2_beta,
-		double* lambda_a, double* a_0, double* lambda_b, double* b_0, double* tau_0,
-		int* n_snps, int* n_genes, int* n_indivs, int g, gsl_vector* one, RngStream rng)
+void update_gene_g_constC(ptr_m_el beta_g, int** Gamma,  double** W_Logit,
+		int** W_Ind, gsl_matrix* X, const gsl_vector* Y_g,
+		double* C_g, double* Mu_g, double* Sig2_g,
+		const double* expr_means, const double* expr_vars, const double* alpha2_beta,
+		int* n_snps, int* n_genes, int* n_indivs, int g, const gsl_vector* one, RngStream rng,
+		ptr_memChunk ptr_chunk_g)
 {
-	gsl_vector_view X_j;
+
 	gsl_vector* Y_minus_mu_g = gsl_vector_calloc(*n_indivs);
 
 	gsl_blas_dcopy(Y_g, Y_minus_mu_g);
@@ -342,6 +345,7 @@ void update_gene_g_constC(m_el* beta_g, int** Gamma, double** W_Logit, int** W_I
 	int i, j, cur;
 	double S_j, v1, v2, p1, w_jg, temp;
 	const double Cg = *C_g;
+	double Sg = *Sig2_g;
 
 	// X %*% B_g   (fitted expression values for gene g), using the sparse representation of beta
 	SV_gsl_dmvpy(X, beta_g, Xbeta_sum_g->data, *n_indivs);
@@ -349,49 +353,52 @@ void update_gene_g_constC(m_el* beta_g, int** Gamma, double** W_Logit, int** W_I
 
 	for(j = 0; j < *n_snps; j++)
 	{
-		X_j = gsl_matrix_column(X, j);
-		// take away the j'th component from the sum, which is non-zero only if gamma[j][g] is nonzero
-		if(Gamma[j][g] == 1)
+		if(W_Ind[j][g] == 1)
 		{
-			gsl_blas_daxpy(-1.0*SV_get(beta_g, j), &X_j.vector, Xbeta_sum_g);
-		}
+			gsl_vector_view X_j = gsl_matrix_column(X, j);
+			// take away the j'th component from the sum, which is non-zero only if gamma[j][g] is nonzero
+			if(Gamma[j][g] == 1)
+			{
+				gsl_blas_daxpy(-1.0*SV_get(beta_g, j), &X_j.vector, Xbeta_sum_g);
+			}
 
-		gsl_blas_dcopy(Y_minus_mu_g, Resid_minus_j);
-		gsl_blas_daxpy(-1.0, Xbeta_sum_g, Resid_minus_j);
+			gsl_blas_dcopy(Y_minus_mu_g, Resid_minus_j);
+			gsl_blas_daxpy(-1.0, Xbeta_sum_g, Resid_minus_j);
 
-		//calculates sum of x values times residuals, without j'th value
-		gsl_blas_ddot(&X_j.vector, Resid_minus_j, &S_j);
+			//calculates sum of x values times residuals, without j'th value
+			gsl_blas_ddot(&X_j.vector, Resid_minus_j, &S_j);
 
-		v2 = alpha2_beta[j]*(Cg)/(1.0 + (Cg));
-		p1=v1*exp(0.5*v2*pow(S_j,2)/(*Sig2_g));
+			v2 = alpha2_beta[j]*(Cg)/(1.0 + (Cg));
+			p1=v1*exp(0.5*v2*pow(S_j,2)/(Sg));
 
-		w_jg = (W_Ind[j][g] == 1) ? expit(W_Logit[j][g]) : 0.0;
+			w_jg = expit(W_Logit[j][g]);
 
-		// update gammas
-		cur = (int)(RngStream_RandU01(rng) <= w_jg*p1/(1.0 - w_jg + w_jg*p1));
+			// update gammas
+			cur = (int)(RngStream_RandU01(rng) <= w_jg*p1/(1.0 - w_jg + w_jg*p1));
 
-		// update betas
-		if(Gamma[j][g] == 1 && cur == 0)
-		{
-			// removing element j is the same as setting it to zero in a sparse representation
-			SV_remove_el(beta_g, j);
-			Gamma[j][g] = cur;
-			// no need to re-update the sum for next iteration, because it's zero now and
-			// we already removed it above
-		}
+			// update betas
+			if(Gamma[j][g] == 1 && cur == 0)
+			{
+				// removing element j is the same as setting it to zero in a sparse representation
+				SV_remove_el(beta_g, j, ptr_chunk_g);
+				Gamma[j][g] = cur;
+				// no need to re-update the sum for next iteration, because it's zero now and
+				// we already removed it above
+			}
 
-		if(cur == 1)
-		{
-			// now the element beta[j][g] is nonzero, so we simulate it and add it to the list
+			if(cur == 1)
+			{
+				// now the element beta[j][g] is nonzero, so we simulate it and add it to the list
 
-			temp = S_j*alpha2_beta[j]*(Cg)/(1.0 + (Cg)) + sqrt(v2*(*Sig2_g))*RngStream_N01(rng);
+				temp = S_j*alpha2_beta[j]*(Cg)/(1.0 + (Cg)) + sqrt(v2*(Sg))*RngStream_N01(rng);
 
-			// add element j to the list (if it's already there that's ok, it will just change the value then)
-			SV_add_el(beta_g, j, temp);
-			Gamma[j][g] = cur;
+				// add element j to the list (if it's already there that's ok, it will just change the value then)
+				SV_add_el(beta_g, j, temp, ptr_chunk_g);
+				Gamma[j][g] = cur;
 
-			// re-update the sum for next iteration
-			gsl_blas_daxpy(SV_get(beta_g, j), &X_j.vector, Xbeta_sum_g);
+				// re-update the sum for next iteration
+				gsl_blas_daxpy(SV_get(beta_g, j), &X_j.vector, Xbeta_sum_g);
+			}
 		}
 	}
 
@@ -415,7 +422,9 @@ void update_gene_g_constC(m_el* beta_g, int** Gamma, double** W_Logit, int** W_I
 	}
 	v1 += (double)*n_indivs/2.0;
 	G_g = G_g/2.0;
-	*Sig2_g = G_g/RngStream_GA1(v1, rng);
+
+	Sg = G_g/RngStream_GA1(v1, rng);
+	*Sig2_g = Sg;
 
 	//update Mu_g
 
@@ -425,11 +434,11 @@ void update_gene_g_constC(m_el* beta_g, int** Gamma, double** W_Logit, int** W_I
 	gsl_blas_ddot(Xbeta_sum_g, one, &sum_G_g);
 	si = sum_y - sum_G_g;
 
-	v1 = (si/(*Sig2_g) + expr_means[g]/expr_vars[g])/
-			((double)*n_indivs/(*Sig2_g) + 1.0/expr_vars[g]);
-	v2 = 1.0/((double)*n_indivs/(*Sig2_g) + 1.0/expr_vars[g]);
+	v1 = (si / Sg + expr_means[g] / expr_vars[g])/
+			((double)*n_indivs / (Sg) + 1.0 / expr_vars[g]);
+	v2 = 1.0 / ((double)*n_indivs / (Sg) + 1.0 / expr_vars[g]);
 
-	*Mu_g = v1+sqrt(v2) * RngStream_N01(rng);
+	*Mu_g = v1 + sqrt(v2) * RngStream_N01(rng);
 
 	gsl_vector_free(Y_minus_mu_g);
 	gsl_vector_free(Xbeta_sum_g);
@@ -439,19 +448,28 @@ void update_gene_g_constC(m_el* beta_g, int** Gamma, double** W_Logit, int** W_I
 }
 
 void store_mcmc_output_constC(FILE *Afile, FILE *Bfile, FILE *Pfile, FILE *Mufile, FILE *Sig2file,
-		int *n_snps, int *n_genes, double* A, double* B, double* P, double* Mu, double* Sig2)
+		int *n_snps, int *n_genes, double* restrict A, double* restrict B, double* restrict P,
+		double* restrict Mu, double* restrict Sig2)
 {
 	int g,j;
+
 	for(g = 0; g < *n_genes; g++)
 	{
-		fprintf(Mufile, "%f\t", Mu[g]);
-		fprintf(Sig2file, "%f\t", Sig2[g]);
+		const double mg = Mu[g];
+		const double sg = Sig2[g];
+
+		fprintf(Mufile, "%f\t", mg);
+		fprintf(Sig2file, "%f\t", sg);
 	}
 	for(j = 0; j < *n_snps; j++)
 	{
-		fprintf(Afile, "%f\t", A[j]);
-		fprintf(Bfile, "%f\t", B[j]);
-		fprintf(Pfile, "%f\t", P[j]);
+		const double aj = A[j];
+		const double bj = B[j];
+		const double pj = P[j];
+
+		fprintf(Afile, "%f\t", aj);
+		fprintf(Bfile, "%f\t", bj);
+		fprintf(Pfile, "%f\t", pj);
 	}
 
 	fprintf(Afile, "\n");
@@ -461,5 +479,3 @@ void store_mcmc_output_constC(FILE *Afile, FILE *Bfile, FILE *Pfile, FILE *Mufil
 	fprintf(Sig2file, "\n");
 	return;
 }
-
-
