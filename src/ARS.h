@@ -8,7 +8,7 @@
 #ifndef ARS_H_
 #define ARS_H_
 
-#define NMAX 10
+#define NMAX 500
 
 struct ARS_WORKSPACE{
 	double hwv[NMAX];
@@ -47,8 +47,8 @@ double sample_conditional(double* restrict x,
 		double* restrict argvec,
 		ARS_workspace *ws,
 		RngStream rng,
-		double eps, double (*h)(double, double *),
-		double (*h_prime)(double , double *));
+		double eps, double (*h)(const double, const double *),
+		double (*h_prime)(const double , const double *));
 
 int update_hull(double* restrict x,
 		ARS_workspace *ws,
@@ -59,7 +59,8 @@ int update_hull(double* restrict x,
 		double hnew,
 		int l_section,
 		double* restrict huzmax,
-		double (*h)(double, double *), double (*h_prime)(double , double *));
+		double (*h)(const double, const double *),
+		double (*h_prime)(const double , const double *));
 
 double sample_hull(double* restrict x,
 		ARS_workspace *ws,

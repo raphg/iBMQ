@@ -68,8 +68,8 @@ double sample_conditional(double* restrict x,
 		double* restrict argvec,
 		ARS_workspace *ws,
 		RngStream rng,
-		double eps, double (*h)(double, double *),
-		double (*h_prime)(double , double *))
+		double eps, double (*h)(const double, const double *),
+		double (*h_prime)(const double , const double *))
 {
 	int i, u_section, l_section;
 	int accept = 0;
@@ -154,7 +154,7 @@ double sample_conditional(double* restrict x,
 	// outer hull.
 	initialize_hull(x, ws, *num_x, huzmax);
 
-	while(attempts < 10000)
+	while(attempts < 100000)
 	{
 		V = RngStream_RandU01(rng);
 
@@ -286,7 +286,8 @@ int update_hull(double* restrict x,
 		double hnew,
 		int l_section,
 		double* restrict huzmax,
-		double (*h)(double, double *), double (*h_prime)(double , double *))
+		double (*h)(const double, const double *),
+		double (*h_prime)(const double , const double *))
 {
 	if(nmax == *num_x)
 	{
