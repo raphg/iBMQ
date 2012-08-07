@@ -41,9 +41,6 @@
  * See also Leong et al, "A Comment on the Implementation of the
  * Ziggurat Method", Journal of Statistical Software, vol 5 (2005), no 7.
  *
- */
-
-/*
  * This source code has been further adapted to work with the pseudo-random number
  * generator used in the iBMQ code for eQTL mapping, rather than GSL routines.
  */
@@ -172,8 +169,7 @@ static const double wtab[128] = {
 };
 
 
-double
-RngStream_N01 (RngStream r)
+double RngStream_N01 (RngStream r)
 {
   unsigned long int i, j;
   int sign;
@@ -221,15 +217,17 @@ RngStream_N01 (RngStream r)
  *
  * Implemented by J.D.Lamb@btinternet.com, minor modifications for GSL
  * by Brian Gough
+ *
+ * This source code has been further adapted to work with the pseudo-random number
+ * generator used in the iBMQ code for eQTL mapping.
  */
 
 
-double
-RngStream_GA1 (const double a, RngStream r)
+double RngStream_GA1 (const double a, RngStream r)
 {
   /* assume a > 0 */
 
-  if (a < 1)
+  if (a < 1.0)
     {
       double u = RngStream_RandU01 (r);
       return RngStream_GA1 (1.0 + a, r) * pow (u, 1.0 / a);
@@ -280,6 +278,7 @@ void beta_test(double *a, double *b, int *n, double *out)
 }
 */
 
+// sample beta(aa,bb) random variables, taken from R source code.
 double RngStream_Beta(double aa, double bb, RngStream rng)
 {
     double a, b, alpha;
@@ -383,6 +382,7 @@ double RngStream_Beta(double aa, double bb, RngStream rng)
     }
 }
 
+// sample the logit transformation of a Beta(a,b) random variable
 double RngStream_LogitBeta(double a, double b, RngStream rng)
 {
 	double x,top,bot;
