@@ -35,8 +35,6 @@
 #include <Rinterface.h>
 #endif
 
-#define ZZERO 2.0e-308
-
 void update_gene_g(ptr_m_el beta_g, int** Gamma, double** W_Logit,
 		int** W_Ind, gsl_matrix* X, const gsl_vector* Y_g,
 		double* C_g, double* Mu_g, double* Sig2_g,
@@ -53,9 +51,8 @@ void c_qtl_main_parallel_sparse(double *gene, int *n_indivs, int *n_genes, doubl
 		int *n_snps, int *n_iter, int *burn_in, int *n_sweep, double *outProbs, int *nP, int *nmax,
 		double *eps, int *write_output, int *variable_C)
 {
-	/* Structures to hold various parameters.
-	 *
-	 * When possible variable names are analogous to those found in the paper */
+	R_CStackLimit = (uintptr_t)-1;
+
 	int iter, i, j, g, th_id = 0;
 
 	// initialize a memory pool for linked list elements of the sparse matrix;
@@ -64,14 +61,12 @@ void c_qtl_main_parallel_sparse(double *gene, int *n_indivs, int *n_genes, doubl
 
 	memPool pool;
 	ptr_memPool ptr_pool = &pool;
+	initializePool(*n_genes, (*n_snps+2), ptr_pool);
 
 	/* copying the elements of snp, gene, to matricies. R is column-major
 	 * and GSL is row-major, so we send to a matrix and then
 	 * transpose it to get a GSL representation of the same matrix.
 	 */
-	R_CStackLimit = (uintptr_t)-1;
-
-	initializePool(*n_genes, (*n_snps+2), ptr_pool);
 
 	gsl_matrix* Y_t = gsl_matrix_calloc(*n_genes, *n_indivs);
 	gsl_matrix* Y = gsl_matrix_calloc(*n_indivs, *n_genes);
@@ -218,7 +213,8 @@ void c_qtl_main_parallel_sparse(double *gene, int *n_indivs, int *n_genes, doubl
 
 	//set hyperparameters for prior distributions, compute
 	// auxiallary quantities
-	set_prior(lambda_a, lambda_b, a_0, b_0, tau_0, expr_means, expr_vars, alpha2_beta, X, Y, rngs[0]);
+	set_prior(lambda_a, lambda_b, a_0, b_0, tau_0, expr_means,
+			expr_vars, alpha2_beta, X, Y, rngs[0]);
 
 	//initialize all parameters to begin MCMC
 	initialize_parms(Beta, ptr_pool, Gamma,  W_Logit, W_Ind, ProbSum, xA, xB,
@@ -242,12 +238,12 @@ void c_qtl_main_parallel_sparse(double *gene, int *n_indivs, int *n_genes, doubl
 		}
 		//if the user wants to interrupt computation (^C)
 		R_CheckUserInterrupt();
-
+		// update genes and positions
 		#pragma omp parallel private(th_id, Y_g, workspace, chunk_g) num_threads(*nP)
 		{
 			th_id = omp_get_thread_num();
 
-			#pragma omp for nowait
+			#pragma omp for
 			for(g = 0; g < *n_genes; g++)
 			{
 				Y_g = gsl_matrix_column(Y, g);
@@ -259,7 +255,7 @@ void c_qtl_main_parallel_sparse(double *gene, int *n_indivs, int *n_genes, doubl
 						*variable_C);
 			}
 
-			#pragma omp for nowait
+			#pragma omp for
 			for(j = 0; j < *n_snps; j++)
 			{
 				update_pos_j(P, A, B, W_Logit, W_Ind, Gamma,
@@ -280,9 +276,8 @@ void c_qtl_main_parallel_sparse(double *gene, int *n_indivs, int *n_genes, doubl
 
 		}
 	}
-	// outputs estimate of P(gamma[j][g] = 1 | data)
+	// outputs estimate of P(gamma[j][g] = 1 | data), and free resources
 	store_prob_include(n_iter, n_snps, n_genes, ProbSum, outProbs);
-
 
 	gsl_matrix_free(X);
 	gsl_matrix_free(Y);
