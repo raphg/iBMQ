@@ -41,9 +41,9 @@
 
 //#define ZZERO 2.0e-308
 
-inline double expit(double x);
-inline double log_from_logit(double x);
-inline double log1m_from_logit(double x);
+double expit(double x);
+double log_from_logit(double x);
+double log1m_from_logit(double x);
 
 double lc_AB(const double x, const double *argvec);
 
