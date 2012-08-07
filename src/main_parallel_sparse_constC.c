@@ -35,7 +35,7 @@
 #include <Rinterface.h>
 #endif
 
-#define ZZERO 2.0e-308
+//#define ZZERO 2.0e-308
 
 void update_gene_g_constC(ptr_m_el beta_g, int** Gamma, double** W_Logit,
 		int** W_Ind, gsl_matrix* X, const gsl_vector* Y_g,
