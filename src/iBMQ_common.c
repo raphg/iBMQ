@@ -35,11 +35,37 @@
 #include <Rinterface.h>
 #endif
 
-#define ZZERO 2.0e-308
+//#define ZZERO 2.0e-308
+inline double expit(double x)
+{
+	double expit;
+	expit = 1.0/(1.0 + exp(-x));
+	return(expit);
+}
 
-double lc_AB(const double x, const double *argvec);
+inline double log_from_logit(double x)
+{
+	if(x > 0.0)
+	{
+		return(-log1p(exp(-x)));
+	}
+	else
+	{
+		return(x - log1p(exp(x)));
+	}
+}
 
-double lcp_AB(const double x, const double *argvec);
+inline double log1m_from_logit(double x)
+{
+	if(x > 0.0)
+	{
+		return(-x - log1p(exp(-x)));
+	}
+	else
+	{
+		return(-log1p(exp(x)));
+	}
+}
 
 double lc_AB(const double x, const double *argvec)
 {
@@ -67,7 +93,8 @@ double lcp_AB(const double x, const double *argvec)
 	const double A = arg0*gsl_sf_psi(x);
 	const double B = arg0*gsl_sf_psi(x + arg1);
 
-	//out = -1.0*argvec[2] + argvec[0]*gsl_sf_psi(x + argvec[1]) - argvec[0]*gsl_sf_psi(x);
+	//out = -1.0*argvec[2] + argvec[0]*gsl_sf_psi(x + argvec[1]) -
+	// argvec[0]*gsl_sf_psi(x);
 	out = -1.0*arg2 + B - A;
 	return(out);
 }
@@ -213,9 +240,8 @@ void set_prior(double* lambda_a, double* lambda_b, double* a_0, double* b_0, dou
 		double* expr_means, double* expr_vars, double* alpha2_beta,
 		gsl_matrix* X, gsl_matrix* Y, RngStream rng)
 {
-/* TODO: allow hyperparameters to be passed as a function argument
- *
- */
+// TODO: allow hyperparameters to be passed as a function argument
+
 	*lambda_a = 10.0;
 	*lambda_b = 0.1;
 	*a_0 = 10.0;
@@ -245,6 +271,7 @@ void set_prior(double* lambda_a, double* lambda_b, double* a_0, double* b_0, dou
 	return;
 }
 
+// Initialize the markov chain
 void initialize_parms(
 		ptr_m_el *Beta,
 		ptr_memPool ptr_pool,
@@ -329,6 +356,7 @@ void initialize_parms(
 			{
 				Gamma[j][g]= 0;
 			}
+
 			if(W_Ind[j][g] == 0 & Gamma[j][g]== 1)
 			{
 				Rprintf("W_ind = %d, Gam = %d\n", W_Ind[j][g], Gamma[j][g]);
