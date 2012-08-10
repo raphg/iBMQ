@@ -1,8 +1,8 @@
 eqtl.mcmc <-
-function(snp,expr,n.iter,burn.in,n.sweep,nproc, constC = TRUE, write.output = TRUE)
+function(snp,expr,n.iter,burn.in,n.sweep,nproc, constC = TRUE, write.output = TRUE, RIS=TRUE)
 {
-n.pheno <- length(expr)
-n.snp <- length(snp)
+n.pheno <- length(as.data.frame(expr))
+n.snp <- length(as.data.frame(snp))
 
 if(!is.null(expr))
 {
@@ -12,11 +12,10 @@ names.indiv <- rownames(expr)
 
 if(!is.null(snp))
 {
-n.indiv1 <- length(snp[[1]])-2
-names.indiv1 <- rownames(snp)[-(1:2)]
-chr <- snp$chr
-pos <- snp$pos
-snp <- unlist(snp[-(1:2),1:n.snp])
+n.indiv1 <- length(snp[[1]])
+names.indiv1 <- rownames(snp)
+
+snp <- unlist(snp)
 }
 
 if(!is.null(expr)&!is.null(snp))
@@ -35,10 +34,28 @@ stop("there is a problem with indivs names")
 }
 }
 
+if(RIS==TRUE){
+if(!all((snp==1)| (snp==0)))
+{stop("The SNPs value need to be 0 and 1")}
+snp[snp==0] <- -0.5
+snp[snp==1] <- 0.5}
+	
+else{
+if(!all((snp==0)| (snp==1) | (snp==2)))
+{stop("The SNPs value need to be 0,1,2")}
+snp[snp==0] <- -0.5
+snp[snp==1] <- 0
+snp[snp==2] <- 0.5
+}
+	
+
+	
+	
 pheno <- unlist(expr)
 #call "c_qtl_mcmc" of C code
 start.time <- Sys.time()
 outProb = double(length = n.snp*n.pheno)
+
 
 c.function="c_qtl_main_parallel_sparse"
 #res <- .C("c_qtl_mcmc_wjg_new",as.double(pheno),as.integer(n.indiv),as.integer(n.pheno),as.double(snp),as.integer(n.snp),as.integer(n.iter),as.integer(burn.in),as.integer(n.sweep))
