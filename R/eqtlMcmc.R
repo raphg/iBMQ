@@ -2,28 +2,35 @@ eqtlMcmc <-
 function(snp,expr,n.iter,burn.in,n.sweep,nproc, constC = TRUE, write.output = TRUE, RIS=TRUE)
 {
 	
-#snp=snp[complete.cases(snp),]
-#expr=expr[complete.cases(expr),]
-cat("Incomplete data will be remove","\n")
-	
-n.pheno <- length(as.data.frame(expr))
-n.snp <- length(as.data.frame(snp))
-	
-	
 
-if(!is.null(expr)){
-  n.indiv <- length(as.data.frame(expr)[[1]])
-  names.indiv <- rownames(expr)
+if((is(snp)[1]=="SnpSet")==FALSE){
+	 stop("The snp need to be in a SnpSet")
+	}
+if((is(expr)[1]=="ExpressionSet")==FALSE){
+	 stop("The gene expression data need to be ExpressionSet")
+	}
+	
+	mat.snp <- Biobase::exprs(snp)
+	mat.expr <-Biobase::exprs(expr)
+	
+n.pheno <- length(as.data.frame(mat.expr))
+n.snp <- length(as.data.frame(mat.snp))
+	
+	
+if(!is.null(mat.expr)){
+  n.indiv <- length(as.data.frame(mat.expr)[[1]])
+  names.indiv <- rownames(mat.expr)
+  names.gene <- colnames(mat.expr)
 }
 
-if(!is.null(snp)){
-  n.indiv1 <- length(as.data.frame(snp)[[1]])
-  names.indiv1 <- rownames(snp)
-  names.snp<- colnames(snp)
-  snp <- unlist(snp)
+if(!is.null(mat.snp)){
+  n.indiv1 <- length(as.data.frame(mat.snp)[[1]])
+  names.indiv1 <- rownames(mat.snp)
+  names.snp<- colnames(mat.snp)
+  mat.snp <- unlist(mat.snp)
 }
 
-if(!is.null(expr) &! is.null(snp)){
+if(!is.null(mat.expr) &! is.null(mat.snp)){
   if(n.indiv != n.indiv1){
     cat("indivs number in expr is",n.indiv,"\n")
     cat("indivs number in snp is",n.indiv1,"\n")
@@ -39,33 +46,34 @@ if(!is.null(expr) &! is.null(snp)){
 
 
 if(RIS == TRUE){
-  if(!all((snp == 1)| (snp == 0))){
+  if(!all((mat.snp == 1)| (mat.snp == 0))){
     stop("The SNPs value need to be 0 and 1")
   }
-  snp[snp==0] <- -0.5
-  snp[snp==1] <- 0.5
+	
+  mat.snp[mat.snp==0] <- -0.5
+  mat.snp[mat.snp==1] <- 0.5
 }
 	
 else{
-  if(!all((snp == 1)| (snp == 2) | (snp == 3))){
+  if(!all((mat.snp == 1)| (mat.snp == 2) | (mat.snp == 3))){
     stop("The SNPs value need to be 1,2,3")}
-#snp[snp==0] <- -0.5
-#snp[snp==1] <- 0
-#snp[snp==2] <- 0.5
+
 }
 	
-pheno <- unlist(expr)
-#call "c_qtl_mcmc" of C code
+	
+	
+pheno <- unlist(mat.expr)
+	
+
 start.time <- Sys.time()
 outProb <- double(length = n.snp*n.pheno)
 
 
 c.function="c_qtl_main_parallel_sparse"
-#res <- .C("c_qtl_mcmc_wjg_new",as.double(pheno),as.integer(n.indiv),as.integer(n.pheno),as.double(snp),as.integer(n.snp),as.integer(n.iter),as.integer(burn.in),as.integer(n.sweep))
 eps <- 10*(.Machine$double.eps)
 nmax <- 500
 res <- .C(c.function,as.double(pheno),as.integer(n.indiv),
-		as.integer(n.pheno),as.double(snp),as.integer(n.snp),
+		as.integer(n.pheno),as.double(mat.snp),as.integer(n.snp),
 		as.integer(n.iter),as.integer(burn.in),as.integer(n.sweep),
 		as.double(outProb), as.integer(nproc), as.integer(nmax), as.double(eps),
 		as.integer(write.output), as.integer(!constC))
@@ -75,7 +83,7 @@ cat(as.character(round(difftime(end.time,start.time,units="min"),digits=2)))
 cat(" minutes.\n")
 dim(res[[9]]) <- c(n.snp, n.pheno)
 out<-res[[9]]
-colnames(out)<-colnames(expr)
+colnames(out)<-names.gene
 rownames(out)<-names.snp
 return(out)
 }

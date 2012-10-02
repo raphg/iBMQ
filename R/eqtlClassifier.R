@@ -31,7 +31,7 @@ if(dim(posGENE)[2] != 4){
 	
 for (i in 1:dim(peak)[1]) {
   Peak_gene <- as.character(peak[i,1])
-  bool <- toupper(posGENE[,1]) %in% toupper(Peak_gene)
+  bool <- toupper(as.character(posGENE[,1])) %in% toupper(Peak_gene)
   if (any(bool)) {
 			genechr <- posGENE[,2][bool][1]
             genestart <- posGENE[,3][bool][1]
@@ -45,7 +45,7 @@ for (i in 1:dim(peak)[1]) {
         }
 		
 		Peak_snp <- as.character(peak[i,2])
-        bool <- toupper(posSNP[,1]) %in% toupper(Peak_snp)
+        bool <- toupper(as.character(posSNP[,1])) %in% toupper(Peak_snp)
         if (any(bool)) {
 			chrsnp <- posSNP[,2][bool][1]
             pos <- posSNP[,3][bool][1]
