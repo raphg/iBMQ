@@ -6,6 +6,7 @@ Date: 2011-10-28
 Author: Marie-Pier Scott-Boyer and Greg Imholte
 Maintainer: Marie-Pier Scott-Boyer <Marie-Pier.Scott-Boyer@ircm.qc.ca>
 Description: integrated Bayesian Modeling of eQTL data
+Imports:Biobase
 License: What license is it under?
 LazyLoad: yes
 Packaged: 2012-01-18 21:27:16 UTC; scottm
