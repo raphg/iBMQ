@@ -84,7 +84,7 @@ void c_qtl_main_parallel_sparse(double *gene, int *n_indivs, int *n_genes, doubl
 
 	FILE *Pfile, *Afile, *Bfile, *Mufile, *Sig2file, *Cfile;
 	// open files to store MCMC output
-	if(*write_output)
+	if(*write_output != 0)
 	{
 		Afile = fopen("afile.txt", "w");
 		Bfile = fopen("bfile.txt", "w");
@@ -103,19 +103,10 @@ void c_qtl_main_parallel_sparse(double *gene, int *n_indivs, int *n_genes, doubl
 
 	// initialize linked list for beta parameters
 	ptr_m_el *Beta;
-	Beta = (ptr_m_el*) malloc(*n_genes*sizeof(ptr_m_el));
-	if(Beta == NULL)
-	{
-		error("Memory allocation failed, exiting.\n");
-	}
-
+	Beta = (ptr_m_el*) R_alloc(*n_genes, sizeof(ptr_m_el));
 	for(g = 0; g < *n_genes; g++)
 	{
-		Beta[g] = malloc(sizeof(m_el));
-		if(Beta[g] == NULL)
-		{
-			error("Memory allocation failed, exiting.\n");
-		}
+		Beta[g] = (ptr_m_el) R_alloc(1, sizeof(m_el));
 		Beta[g]->next = NULL;
 	}
 
@@ -124,56 +115,39 @@ void c_qtl_main_parallel_sparse(double *gene, int *n_indivs, int *n_genes, doubl
 	double **W_Logit, **xA, **xB;
 	int **Gamma, **ProbSum, **W_Ind;
 
-	W_Logit = (double**) malloc(*n_snps*sizeof(double*));
-	W_Ind = (int**) malloc(*n_snps*sizeof(int*));
-	xA = (double**) malloc(*n_snps*sizeof(double*));
-	xB = (double**) malloc(*n_snps*sizeof(double*));
-	Gamma = (int**) malloc(*n_snps*sizeof(int*));
-	ProbSum = (int**) malloc(*n_snps*sizeof(int*));
-
-	if((W_Logit == NULL) || Gamma == NULL || ProbSum == NULL || W_Ind == NULL)
-	{
-		error("Memory allocation failed, exiting.\n");
-	}
+	W_Logit = (double**) R_alloc(*n_snps, sizeof(double*));
+	W_Ind = (int**) R_alloc(*n_snps, sizeof(int*));
+	xA = (double**) R_alloc(*n_snps, sizeof(double*));
+	xB = (double**) R_alloc(*n_snps, sizeof(double*));
+	Gamma = (int**) R_alloc(*n_snps, sizeof(int*));
+	ProbSum = (int**) R_alloc(*n_snps, sizeof(int*));
 
 	for(j = 0; j < *n_snps; j++)
 	{
-		W_Logit[j] = (double*) malloc(*n_genes*sizeof(double));
-		W_Ind[j] = (int*) malloc(*n_genes*sizeof(int));
-		xA[j] = (double*) malloc(*nmax*sizeof(double));
-		xB[j] = (double*) malloc(*nmax*sizeof(double));
-		Gamma[j] = (int*) malloc(*n_genes*sizeof(int));
-		ProbSum[j] = (int*) malloc(*n_genes*sizeof(int));
-		if((W_Logit[j] == NULL) || Gamma[j] == NULL || ProbSum[j] == NULL || W_Ind[j] == NULL)
-		{
-			error("Memory allocation failed, exiting.\n");
-		}
+		W_Logit[j] = (double*) R_alloc(*n_genes, sizeof(double));
+		W_Ind[j] = (int*) R_alloc(*n_genes, sizeof(int));
+		xA[j] = (double*) R_alloc(*nmax, sizeof(double));
+		xB[j] = (double*) R_alloc(*nmax, sizeof(double));
+		Gamma[j] = (int*) R_alloc(*n_genes, sizeof(int));
+		ProbSum[j] = (int*) R_alloc(*n_genes, sizeof(int));
 	}
 
 	// initialize single indexed arrays
 	double *A, *B, *C, *P, *Mu, *Sig2, *expr_means, *expr_vars, *alpha2_beta;
-	double *Astart, *Bstart;
 
-	A = (double*)malloc(*n_snps*sizeof(double));
-	B = (double*)malloc(*n_snps*sizeof(double));;
-	P = (double*)malloc(*n_snps*sizeof(double));
-	C = (double*)malloc(*n_genes*sizeof(double));
-	Mu = (double*)malloc(*n_genes*sizeof(double));
-	Sig2 = (double*)malloc(*n_genes*sizeof(double));
+	A = (double*) R_alloc (*n_snps, sizeof(double));
+	B = (double*) R_alloc(*n_snps, sizeof(double));;
+	P = (double*) R_alloc(*n_snps, sizeof(double));
+	C = (double*) R_alloc(*n_genes, sizeof(double));
+	Mu = (double*) R_alloc(*n_genes, sizeof(double));
+	Sig2 = (double*) R_alloc(*n_genes, sizeof(double));
 
 	//empirical mean and variance of gene expression
-	expr_means = (double*)malloc(*n_genes*sizeof(double));
-	expr_vars = (double*)malloc(*n_genes*sizeof(double));
+	expr_means = (double*) R_alloc(*n_genes, sizeof(double));
+	expr_vars = (double*) R_alloc(*n_genes, sizeof(double));
 
 	// holds (X_j)^T (X_j) for each snp j
-	alpha2_beta = (double*)malloc(*n_snps*sizeof(double));
-
-	// check whether dynamic allocation is successful
-	if(A == NULL || B == NULL || P == NULL || C == NULL || Mu == NULL || Sig2 == NULL ||
-			expr_means == NULL || expr_vars == NULL || alpha2_beta == NULL)
-	{
-		error("Memory allocation failed, exiting.\n");
-	}
+	alpha2_beta = (double*) R_alloc(*n_snps, sizeof(double));
 
 	// cheesy but effective
 	double lambdaa = 0.0;
@@ -268,7 +242,7 @@ void c_qtl_main_parallel_sparse(double *gene, int *n_indivs, int *n_genes, doubl
 		if((iter > (*burn_in)) & ((iter-(*burn_in))%(*n_sweep) == 0))
 		{
 			update_prob_include(n_snps, n_genes, Gamma, ProbSum);
-			if(write_output)
+			if(*write_output != 0)
 			{
 				store_mcmc_output(Afile, Bfile, Pfile, Mufile, Sig2file, Cfile,
 						n_snps, n_genes, A, B, P, Mu, Sig2, C, *variable_C);
@@ -281,49 +255,14 @@ void c_qtl_main_parallel_sparse(double *gene, int *n_indivs, int *n_genes, doubl
 
 	gsl_matrix_free(X);
 	gsl_matrix_free(Y);
-
-	for(g = 0; g < *n_genes; g++)
-	{
-		free(Beta[g]);
-	}
-
-	free(Beta);
 	gsl_vector_free(one);
-
-	free(Sig2);
-	free(Mu);
-	free(A);
-	free(B);
-	free(C);
-	free(P);
-	free(alpha2_beta);
-	free(expr_means);
-	free(expr_vars);
-
-	for(j = 0; j < *n_snps; j++)
-	{
-		free(W_Ind[j]);
-		free(W_Logit[j]);
-		free(Gamma[j]);
-		free(ProbSum[j]);
-		free(xA[j]);
-		free(xB[j]);
-	}
-
-	free(W_Ind);
-	free(W_Logit);
-	free(Gamma);
-	free(ProbSum);
-	free(xA);
-	free(xB);
-	deletePool(ptr_pool);
 
 	for(i = 0; i < *nP; i++)
 	{
 		RngStream_DeleteStream(rngs[i]);
 	}
 
-	if(*write_output)
+	if(*write_output != 0)
 	{
 		fclose(Afile);
 		fclose(Bfile);
@@ -345,7 +284,6 @@ void update_gene_g(ptr_m_el beta_g, int** Gamma,  double** W_Logit,
 		int* n_snps, int* n_genes, int* n_indivs, int g, const gsl_vector* one, RngStream rng,
 		ptr_memChunk ptr_chunk_g, int variable_C)
 {
-
 	gsl_vector* Y_minus_mu_g = gsl_vector_calloc(*n_indivs);
 
 	gsl_blas_dcopy(Y_g, Y_minus_mu_g);

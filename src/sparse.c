@@ -14,7 +14,7 @@
 void initializePool(int n_chunks, int n_els, ptr_memPool ptr_pool)
 {
 	int i;
-	ptr_pool->array_head = (ptr_memChunk*) malloc(n_chunks*sizeof(ptr_memChunk));
+	ptr_pool->array_head = (ptr_memChunk*) R_alloc(n_chunks, sizeof(ptr_memChunk));
 	ptr_pool->n_chunks = n_chunks;
 
 	if(ptr_pool->array_head == NULL)
@@ -35,7 +35,7 @@ ptr_memChunk initializeChunk(int n_els)
 	// allocate a memChunk header to the pointer
 
 	ptr_memChunk ptr_chunk;
-	ptr_chunk = (ptr_memChunk) malloc(sizeof(memChunk));
+	ptr_chunk = (ptr_memChunk) R_alloc(1, sizeof(memChunk));
 	ptr_m_el el_array, last, tmp;
 
 	if(ptr_chunk == NULL)
@@ -44,7 +44,7 @@ ptr_memChunk initializeChunk(int n_els)
 	}
 
 	// allocate memory and fill in fields of the chunk.
-	el_array = (ptr_m_el) malloc(n_els*sizeof(m_el));
+	el_array = (ptr_m_el) R_alloc(n_els, sizeof(m_el));
 
 	ptr_chunk->array_head = el_array;
 	ptr_chunk->next_avail = el_array;
