@@ -10,8 +10,8 @@ if((is(expr)[1]=="ExpressionSet")==FALSE){
 	 stop("The gene expression data need to be ExpressionSet")
 	}
 	
-	mat.snp <- Biobase::exprs(snp)
-	mat.expr <-Biobase::exprs(expr)
+	mat.snp <- t(Biobase::exprs(snp))
+	mat.expr <-t(Biobase::exprs(expr))
 	
 n.pheno <- length(as.data.frame(mat.expr))
 n.snp <- length(as.data.frame(mat.snp))
