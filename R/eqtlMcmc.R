@@ -3,18 +3,18 @@ function(snp,expr,n.iter,burn.in,n.sweep,nproc, constC = TRUE, write.output = TR
 {
 	
 
-if((is(snp)[1]=="SnpSet")==FALSE){
+if(!is(snp,"SnpSet")){
 	 stop("The snp need to be in a SnpSet")
 	}
-if((is(expr)[1]=="ExpressionSet")==FALSE){
+if(!is(expr,"ExpressionSet")){
 	 stop("The gene expression data need to be ExpressionSet")
 	}
 	
-	mat.snp <- t(Biobase::exprs(snp))
-	mat.expr <-t(Biobase::exprs(expr))
+	mat.snp <- t(exprs(snp))
+	mat.expr <-t(exprs(expr))
 	
-n.pheno <- length(as.data.frame(mat.expr))
-n.snp <- length(as.data.frame(mat.snp))
+	n.pheno <- length(as.data.frame(mat.expr))
+	n.snp <- length(as.data.frame(mat.snp))
 	
 	
 if(!is.null(mat.expr)){

@@ -1,4 +1,3 @@
-
 calculateThreshold <-
 function(prob, threshold)
 { 

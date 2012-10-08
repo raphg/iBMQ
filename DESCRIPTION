@@ -1,13 +1,12 @@
 Package: iBMQ
 Type: Package
 Title: integrated Bayesian Modeling of eQTL data
-Version: 1.0
+Version: 0.1
 Date: 2011-10-28
 Author: Marie-Pier Scott-Boyer and Greg Imholte
 Maintainer: Marie-Pier Scott-Boyer <Marie-Pier.Scott-Boyer@ircm.qc.ca>
 Description: integrated Bayesian Modeling of eQTL data
-Imports:Biobase
-License: What license is it under?
-LazyLoad: yes
-Packaged: 2012-01-18 21:27:16 UTC; scottm
-Namespace: auto
+License: Artistic-2.0
+Depends: R(>= 2.15.0),Biobase (>= 2.16.0)
+biocViews: Microarray, Preprocessing, GeneExpression, SNP
+URL: http://www.rglab.org
