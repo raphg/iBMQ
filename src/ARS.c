@@ -35,16 +35,9 @@
  * density on (0, infinity), and with a little more work,
  * a density on any connected support of R)
  *
- * to make this more general, one could pass pointers to
- * target functions h, h' instead of calling them outside the function
- *
- * for arbitrary densities there may be overflow or underflow issues,
- * but for the designed usage, values are stable.
- *
  * x: starting lattice of points
  * num_x: number of starting points
  * nmax: maximum number of points in lattice
- *
  *
  * ARS_workspace is a struct with elements
  * hwv: working vector for the h(x) values
@@ -295,7 +288,6 @@ int update_hull(double* restrict x,
 		// do not update hull and return to sampler
 		return(0);
 	}
-
 	double hpnew, test2, test1;
 	double* restrict hwv = ws->hwv;
 	double* restrict hpwv = ws->hpwv;
@@ -305,7 +297,6 @@ int update_hull(double* restrict x,
 	hpnew = h_prime(xnew, argvec);
 	// we are past l_section, so x_samp goes between
 	// x[l_section - 1] and x[l_section]
-
 	if(l_section == 0)
 	{
 		//new sample fell in leftmost chamber
@@ -326,7 +317,6 @@ int update_hull(double* restrict x,
 		{
 			z[i] = z[i-1];
 		}
-
 		z[0] = (hwv[1] - hwv[0] - x[1]*(hpwv[1]) + x[0]*(hpwv[0]))/
 				(hpwv[0] - hpwv[1]);
 	}
@@ -341,7 +331,6 @@ int update_hull(double* restrict x,
 		z[*num_x - 1] = (hwv[*num_x] - hwv[*num_x-1] - x[*num_x]*(hpwv[*num_x]) +
 				x[*num_x-1]*(hpwv[*num_x-1]))/
 				(hpwv[*num_x-1] - hpwv[*num_x]);
-
 		*num_x = *num_x + 1;
 	}
 	else
@@ -366,7 +355,6 @@ int update_hull(double* restrict x,
 			z[i+1] = z[i];
 			//hzwv[i+1] = hzwv[i];
 		}
-
 		// compute new midpoints
 		for(i = l_section - 1; i < l_section + 1; i++)
 		{
@@ -381,7 +369,6 @@ int update_hull(double* restrict x,
 			znew = (hwv_ip1 - hwv_i - x_ip1*hpwv_ip1 +
 					x_i*hpwv_i)/
 					(hpwv_i - hpwv_ip1);
-
 			z[i] = znew;
 		}
 		*num_x = *num_x + 1;
@@ -400,7 +387,6 @@ int update_hull(double* restrict x,
 			// initialize the search largest y value in outer hull
 			*huzmax = hwv_i - x_i * hpwv_i;
 		}
-
 		test1 = *huzmax;
 		test2 = hwv_i + (z_i - x_i) * hpwv_i;
 		*huzmax = (test1 > test2) ? test1 : test2;
@@ -445,21 +431,13 @@ double sample_hull(double* restrict x,
 
 	b = hwv_j - huzmax - hpwv_j*x_j;
 
-
 	if(j == 0)
 	{
-	//	R = (p*exp(scum[*num_x - 1]))*(hpwv[j]) + exp(hwv[j] - x[j]*(hpwv[j]) - *huzmax);
-	//	y = (log(R) + *huzmax - hwv[j])/(hpwv[j]) + x[j];
-
 		pstar = p*exp(scum_max);
 		y = (log(pstar*hpwv_j + exp(b)) - b)/hpwv_j;
 	}
 	else
 	{
-//		R = (p*exp(scum[*num_x - 1]) - exp(scum[j-1]))*(hpwv[j]) +
-//				exp(hwv[j] + (z[j-1] - x[j])*(hpwv[j]) - *huzmax);
-//		y = (log(R) + *huzmax - hwv[j])/(hpwv[j]) + x[j];
-
 		pstar = p*exp(scum_max) - exp(scum_jm1);
 		y = (log(pstar * hpwv_j + exp(hpwv_j * z_jm1 + b)) - b)/hpwv_j;
 	}
@@ -497,19 +475,17 @@ void initialize_hull(double* restrict x,
 		const double z_i = z[i];
 		const double z_im1 = z[i - 1];
 		const double x_i = x[i];
-
 		double snew;
+
 		// first and last chambers are special cases.
 		// get the log of the integral from z[i-1] to z[i] under the hull
 		if(i == 0)
 		{
-
 			if(hpwv_i > 0)
 			{
 				snew = (hwv_i + (z_i- x_i)*hpwv_i - huzmax) +
 						log1p(-1.0*exp(-1.0*z_i*hpwv_i)) - log(hpwv_i);
 			}
-
 			else
 			{
 				snew = (hwv_i - x_i*hpwv_i - huzmax) +
@@ -526,7 +502,6 @@ void initialize_hull(double* restrict x,
 			scum[i] = log_apb(scum[i-1], snew);
 			s[i] = snew;
 		}
-
 		// middle chambers
 		else
 		{
@@ -537,7 +512,6 @@ void initialize_hull(double* restrict x,
 						 log(hpwv_i);
 				s[i] = snew;
 			}
-
 			else if(hpwv_i < 0)
 			{
 				snew = (hwv_i + (z_im1 - x_i)*(hpwv_i) - huzmax) +
@@ -551,11 +525,9 @@ void initialize_hull(double* restrict x,
 				snew = log(z_i - z_im1) + hwv_i - huzmax;
 				s[i] = snew;
 			}
-
 			scum[i] = log_apb(scum[i-1], snew);
 		}
 	}
-
 	// normalize the cumulative values
 	for(i = 0; i < num_x; i++)
 	{

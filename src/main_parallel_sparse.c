@@ -294,13 +294,14 @@ void update_gene_g(ptr_m_el beta_g, int** Gamma,  double** W_Logit,
 
 	gsl_vector* Resid_minus_j = gsl_vector_calloc(*n_indivs);
 	int i, j, cur;
-	double S_j, v1, v2, p1, w_jg, temp;
+	double S_j, v1, v2, p1, w_jg, temp, logodds;
 	double Cg = *C_g;
 	double Sg = *Sig2_g;
 
 	// X %*% B_g   (fitted expression values for gene g), using the sparse representation of beta
 	SV_gsl_dmvpy(X, beta_g, Xbeta_sum_g->data, *n_indivs);
-	v1 = 1.0/sqrt(1.0 + (Cg));
+
+	v1 = -.5*log1p(Cg);
 
 	for(j = 0; j < *n_snps; j++)
 	{
@@ -320,12 +321,11 @@ void update_gene_g(ptr_m_el beta_g, int** Gamma,  double** W_Logit,
 			gsl_blas_ddot(&X_j.vector, Resid_minus_j, &S_j);
 
 			v2 = alpha2_beta[j]*(Cg)/(1.0 + (Cg));
-			p1=v1*exp(0.5*v2*pow(S_j,2)/(Sg));
 
-			w_jg = expit(W_Logit[j][g]);
+			logodds = v1 + 0.5*v2*pow(S_j,2)/(Sg) + W_Logit[j][g];
 
 			// update gammas
-			cur = (int)(RngStream_RandU01(rng) <= w_jg*p1/(1.0 - w_jg + w_jg*p1));
+			cur = (int)(logit(RngStream_RandU01(rng)) <= logodds);
 
 			// update betas
 			if(Gamma[j][g] == 1 && cur == 0)
@@ -340,7 +340,6 @@ void update_gene_g(ptr_m_el beta_g, int** Gamma,  double** W_Logit,
 			if(cur == 1)
 			{
 				// now the element beta[j][g] is nonzero, so we simulate it and add it to the list
-
 				temp = S_j*alpha2_beta[j]*(Cg)/(1.0 + (Cg)) + sqrt(v2*(Sg))*RngStream_N01(rng);
 
 				// add element j to the list (if it's already there that's ok, it will just change the value then)

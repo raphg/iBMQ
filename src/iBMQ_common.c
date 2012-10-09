@@ -13,6 +13,7 @@
 #include "sparse.h"
 #include "ARS.h"
 
+#include <float.h>
 #include <omp.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -64,6 +65,23 @@ inline double log1m_from_logit(double x)
 	else
 	{
 		return(-log1p(exp(x)));
+	}
+}
+
+double logit(double x)
+{
+	if(x == 0.0)
+	{
+		return(-DBL_MAX);
+	}
+	else if(x == 1.0)
+	{
+		return(DBL_MAX);
+	}
+	else
+	{
+		double out = log(x) - log1p(-x);
+		return(out);
 	}
 }
 

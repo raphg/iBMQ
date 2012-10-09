@@ -15,7 +15,7 @@
 #include "norm_gamma_generation.h"
 #include "sparse.h"
 #include "ARS.h"
-
+#include <float.h>
 #include <omp.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -44,10 +44,12 @@
 double expit(double x);
 double log_from_logit(double x);
 double log1m_from_logit(double x);
+double logit(double x);
 
 double lc_AB(const double x, const double *argvec);
 
 double lcp_AB(const double x, const double *argvec);
+
 
 void store_prob_include(int *n_iter, int *n_snps, int *n_genes,
 		int** ProbSum, double* outProbs);
