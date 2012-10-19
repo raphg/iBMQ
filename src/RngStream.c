@@ -15,7 +15,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
+#include <R.h>
+#include <Rinterface.h>
 
 /*---------------------------------------------------------------------*/
 /* Private part.                                                       */
@@ -268,7 +269,7 @@ static int CheckSeed (unsigned long seed[6])
 
    for (i = 0; i < 3; ++i) {
       if (seed[i] >= m1) {
-	 fprintf (stderr, "****************************************\n"
+	 Rprintf ("****************************************\n"
 		 "ERROR: Seed[%1d] >= m1, Seed is not set.\n"
 		 "****************************************\n\n", i);
 	 return (-1);
@@ -276,20 +277,20 @@ static int CheckSeed (unsigned long seed[6])
    }
    for (i = 3; i < 6; ++i) {
       if (seed[i] >= m2) {
-	 fprintf (stderr, "****************************************\n"
+	 Rprintf ("****************************************\n"
 		 "ERROR: Seed[%1d] >= m1, Seed is not set.\n"
 		 "****************************************\n\n", i);
 	 return (-1);
        }
    }
    if (seed[0] == 0 && seed[1] == 0 && seed[2] == 0) {
-      fprintf (stderr, "****************************\n"
+      Rprintf ("****************************\n"
 	      "ERROR: First 3 seeds = 0.\n"
 	      "****************************\n\n");
       return (-1);
    }
    if (seed[3] == 0 && seed[4] == 0 && seed[5] == 0) {
-      fprintf (stderr, "****************************\n"
+      Rprintf ("****************************\n"
 	      "ERROR: Last 3 seeds = 0.\n"
 	      "****************************\n\n");
       return (-1);
@@ -312,8 +313,8 @@ RngStream RngStream_CreateStream (const char name[])
 
    g = (RngStream) malloc (sizeof (struct RngStream_InfoState));
    if (g == NULL) {
-      printf ("RngStream_CreateStream: No more memory\n\n");
-      exit (EXIT_FAILURE);
+      Rprintf ("RngStream_CreateStream: No more memory\n\n");
+      error("RngStream allocation failed. Exiting.");
    }
    if (name) {
       len = strlen (name);
@@ -445,13 +446,13 @@ void RngStream_WriteState (RngStream g)
       return;
    printf ("The current state of the Rngstream");
    if (g->name && (strlen (g->name) > 0))
-      printf (" %s", g->name);
-   printf (":\n   Cg = { ");
+      Rprintf (" %s", g->name);
+   Rprintf (":\n   Cg = { ");
 
    for (i = 0; i < 5; i++) {
-      printf ("%lu, ", (unsigned long) g->Cg[i]);
+      Rprintf ("%lu, ", (unsigned long) g->Cg[i]);
    }
-   printf ("%lu }\n\n", (unsigned long) g->Cg[5]);
+   Rprintf ("%lu }\n\n", (unsigned long) g->Cg[5]);
 }
 
 /*-------------------------------------------------------------------------*/
@@ -461,29 +462,29 @@ void RngStream_WriteStateFull (RngStream g)
    int i;
    if (g == NULL)
       return;
-   printf ("The RngStream");
+   Rprintf ("The RngStream");
    if (g->name && (strlen (g->name) > 0))
-      printf (" %s", g->name);
-   printf (":\n   Anti = %s\n", (g->Anti ? "true" : "false"));
-   printf ("   IncPrec = %s\n", (g->IncPrec ? "true" : "false"));
+      Rprintf (" %s", g->name);
+   Rprintf (":\n   Anti = %s\n", (g->Anti ? "true" : "false"));
+   Rprintf ("   IncPrec = %s\n", (g->IncPrec ? "true" : "false"));
 
-   printf ("   Ig = { ");
+   Rprintf ("   Ig = { ");
    for (i = 0; i < 5; i++) {
-      printf ("%lu, ", (unsigned long) (g->Ig[i]));
+      Rprintf ("%lu, ", (unsigned long) (g->Ig[i]));
    }
-   printf ("%lu }\n", (unsigned long) g->Ig[5]);
+   Rprintf ("%lu }\n", (unsigned long) g->Ig[5]);
 
-   printf ("   Bg = { ");
+   Rprintf ("   Bg = { ");
    for (i = 0; i < 5; i++) {
-      printf ("%lu, ", (unsigned long) (g->Bg[i]));
+      Rprintf ("%lu, ", (unsigned long) (g->Bg[i]));
    }
-   printf ("%lu }\n", (unsigned long) g->Bg[5]);
+   Rprintf ("%lu }\n", (unsigned long) g->Bg[5]);
 
-   printf ("   Cg = { ");
+   Rprintf ("   Cg = { ");
    for (i = 0; i < 5; i++) {
-      printf ("%lu, ", (unsigned long) (g->Cg[i]));
+      Rprintf ("%lu, ", (unsigned long) (g->Cg[i]));
    }
-   printf ("%lu }\n\n", (unsigned long) g->Cg[5]);
+   Rprintf ("%lu }\n\n", (unsigned long) g->Cg[5]);
 }
 
 /*-------------------------------------------------------------------------*/

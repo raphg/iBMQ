@@ -1,2 +1,2 @@
-PKG_CFLAGS = -fopenmp -DHAVE_INLINE -DGSL_RANGE_CHECK_OFF -I/usr/include 
-PKG_LIBS = -lgsl -lgslcblas -lm -lgomp
+PKG_CFLAGS = $(SHLIB_OPENMP_CFLAGS) -DHAVE_INLINE -DGSL_RANGE_CHECK_OFF  
+PKG_LIBS = -lgsl -lgslcblas -lm $(SHLIB_OPENMP_CFLAGS)

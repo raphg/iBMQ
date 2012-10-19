@@ -5,7 +5,7 @@
 
 #ifndef RNGSTREAM_H
 #define RNGSTREAM_H
- 
+
 #ifdef __cplusplus
 extern "C"{
 #endif

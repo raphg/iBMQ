@@ -49,8 +49,7 @@ void store_mcmc_output_constC(FILE *Afile, FILE *Bfile, FILE *Pfile, FILE *Mufil
 		double* restrict Mu, double* restrict Sig2);
 
 void c_qtl_main_parallel_sparse_constC(double *gene, int *n_indivs, int *n_genes, double *snp,
-		int *n_snps, int *n_iter, int *burn_in, int *n_sweep, double *outProbs, int *nP, int *nmax,
-		double *eps)
+		int *n_snps, int *n_iter, int *burn_in, int *n_sweep, double *outProbs, int *nP, int *nmax)
 {
 	/* Structures to hold various parameters.
 	 *
@@ -257,7 +256,7 @@ void c_qtl_main_parallel_sparse_constC(double *gene, int *n_indivs, int *n_genes
 				update_pos_j(P, A, B, W_Logit, W_Ind, Gamma,
 						j, a_0, b_0, lambda_a, lambda_b,
 						n_genes, rngs[th_id], *nmax,
-						xA[j], xB[j], &workspace, *eps);
+						xA[j], xB[j], &workspace);
 			}
 		}
 
