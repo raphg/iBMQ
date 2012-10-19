@@ -9,22 +9,19 @@ Bayesian Multiple eQTL mapping using MCMC
 Compute MCMC algorithm to produce Posterior Probability of Association for 
   eQTL mapping.   }
 \usage{
-eqtlMcmc(snp, expr, n.iter, burn.in, n.sweep, mc.cores,  constC = TRUE,
+eqtlMcmc(snp, expr, n.iter, burn.in, n.sweep, mc.cores,
  write.output = TRUE)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
   \item{snp}{ SnpSet class object}
   \item{expr}{ ExpressionSet class object}
-  \item{n.iter}{Number of iterations to be saved}
-  \item{burn.in}{The initial burn-in period}
-  \item{n.sweep}{The sweeping number which must be a positive number}
+  \item{n.iter}{Number of samples to be saved from the Markov Chain}
+  \item{burn.in}{Number of burn-in iterations for the Markov Chain}
+  \item{n.sweep}{Number of iterations between samples of the Markov Chain (AKA thinning interval)}
   \item{mc.cores}{The number of cores you would like to use for 
   	parallel processing. Can be set be set via `options(cores=4)', if not set, 
 	the code will automatically detect the number of cores.} 
-  \item{constC}{Should variables C be fixed? If TRUE, fixed to 
-  	number of SNPS. If FALSE, C parameters are given independent
-  	inverse gamma priors.}
   \item{write.output}{Write chain iterations to file? If TRUE, 
   	output for variables will be written to files created in 
   	the working directory.}
