@@ -1,8 +1,7 @@
 eqtlMcmc <-
-function(snp,expr,n.iter,burn.in,n.sweep,nproc, constC = TRUE, write.output = TRUE, RIS=TRUE)
+function(snp,expr,n.iter,burn.in,n.sweep, mc.cores=getOption("cores"), constC = TRUE, write.output = TRUE, RIS=TRUE)
 {
 	
-
 if(!is(snp,"SnpSet")){
 	 stop("The snp need to be in a SnpSet")
 	}
@@ -68,6 +67,12 @@ pheno <- unlist(mat.expr)
 start.time <- Sys.time()
 outProb <- double(length = n.snp*n.pheno)
 
+# Set up the number of cores
+cores <- mc.cores
+if (is.null(cores)) cores <- parallel:::detectCores()
+cores <- as.integer(cores)
+
+
 
 c.function="c_qtl_main_parallel_sparse"
 eps <- 10*(.Machine$double.eps)
@@ -75,7 +80,7 @@ nmax <- 500
 res <- .C(c.function,as.double(pheno),as.integer(n.indiv),
 		as.integer(n.pheno),as.double(mat.snp),as.integer(n.snp),
 		as.integer(n.iter),as.integer(burn.in),as.integer(n.sweep),
-		as.double(outProb), as.integer(nproc), as.integer(nmax), as.double(eps),
+		as.double(outProb), cores, as.integer(nmax), as.double(eps),
 		as.integer(write.output), as.integer(!constC))
 end.time <- Sys.time()
 cat("running MCMC takes ")

@@ -9,7 +9,7 @@ Bayesian Multiple eQTL mapping using MCMC
 Compute MCMC algorithm to produce Posterior Probability of Association for 
   eQTL mapping.   }
 \usage{
-eqtl.mcmc(snp, expr, n.iter, burn.in, n.sweep, nproc,  constC = TRUE,
+eqtlMcmc(snp, expr, n.iter, burn.in, n.sweep, mc.cores,  constC = TRUE,
  write.output = TRUE)
 }
 %- maybe also 'usage' for other objects documented here.
@@ -19,8 +19,9 @@ eqtl.mcmc(snp, expr, n.iter, burn.in, n.sweep, nproc,  constC = TRUE,
   \item{n.iter}{Number of iterations to be saved}
   \item{burn.in}{The initial burn-in period}
   \item{n.sweep}{The sweeping number which must be a positive number}
-  \item{nproc}{The number of threads you would like to use for 
-  	parallel processing} 
+  \item{mc.cores}{The number of cores you would like to use for 
+  	parallel processing. Can be set be set via `options(cores=4)', if not set, 
+	the code will automatically detect the number of cores.} 
   \item{constC}{Should variables C be fixed? If TRUE, fixed to 
   	number of SNPS. If FALSE, C parameters are given independent
   	inverse gamma priors.}
