@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <Rversion.h>
+#include <float.h>
 
 #if (R_VERSION >= R_Version(2,3,0))
 #define R_INTERFACE_PTRS 1
@@ -50,7 +51,6 @@
  * h: function taking a double and a vector of arguments, returns log density
  * h_prime: function taking double and vector of arguments, returns derivative of log density
  * rng: random number generator
- * eps: double machine precision value
  */
 
 
@@ -61,7 +61,7 @@ double sample_conditional(double* restrict x,
 		double* restrict argvec,
 		ARS_workspace *ws,
 		RngStream rng,
-		double eps, double (*h)(const double, const double *),
+		double (*h)(const double, const double *),
 		double (*h_prime)(const double , const double *))
 {
 	int i, u_section, l_section;
@@ -121,7 +121,7 @@ double sample_conditional(double* restrict x,
 		// tangents are nearly parallel, use midpoint
 		// approximation to avoid instability
 
-		if((hpwv_i - hpwv_ip1) <= eps)
+		if((hpwv_i - hpwv_ip1) <= DBL_EPSILON)
 		{
 
 			znew = (x_i + x_ip1)/2.0;

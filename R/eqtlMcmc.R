@@ -1,5 +1,5 @@
 eqtlMcmc <-
-function(snp,expr,n.iter,burn.in,n.sweep, mc.cores=getOption("cores"), constC = TRUE, write.output = TRUE, RIS=TRUE)
+function(snp,expr,n.iter,burn.in,n.sweep, mc.cores=getOption("cores"), write.output = TRUE, RIS=TRUE)
 {
 	
 if(!is(snp,"SnpSet")){
@@ -72,18 +72,15 @@ cores <- mc.cores
 if (is.null(cores)) cores <- parallel:::detectCores()
 cores <- as.integer(cores)
 
-
-
 c.function="c_qtl_main_parallel_sparse"
-eps <- 10*(.Machine$double.eps)
 nmax <- 500
 res <- .C(c.function,as.double(pheno),as.integer(n.indiv),
 		as.integer(n.pheno),as.double(mat.snp),as.integer(n.snp),
 		as.integer(n.iter),as.integer(burn.in),as.integer(n.sweep),
-		as.double(outProb), cores, as.integer(nmax), as.double(eps),
-		as.integer(write.output), as.integer(!constC))
+		as.double(outProb), cores, as.integer(nmax),
+		as.integer(write.output))
 end.time <- Sys.time()
-cat("running MCMC takes ")
+cat("Running MCMC took ")
 cat(as.character(round(difftime(end.time,start.time,units="min"),digits=2)))
 cat(" minutes.\n")
 dim(res[[9]]) <- c(n.snp, n.pheno)

@@ -59,7 +59,7 @@ int update_pos_j(double* P, double* A, double* B, double** W_Logit, int** W_Ind,
 		int** Gamma,
 		int j, double* a_0, double* b_0, double* lambda_a, double* lambda_b,
 		int* n_genes, RngStream rng, int nmax,
-		double *xA, double *xB, ARS_workspace *workspace, double eps);
+		double *xA, double *xB, ARS_workspace *workspace);
 
 void set_prior(double* lambda_a, double* lambda_b, double* a_0, double* b_0, double *tau_0,
 		double* expr_means, double* expr_vars, double* alpha2_beta,

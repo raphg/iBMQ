@@ -156,7 +156,7 @@ int update_pos_j(double* P, double* A, double* B, double** W_Logit, int** W_Ind,
 		int** Gamma,
 		int j, double* a_0, double* b_0, double* lambda_a, double* lambda_b,
 		int* n_genes, RngStream rng, int nmax,
-		double *xA, double *xB, ARS_workspace *workspace, double eps)
+		double *xA, double *xB, ARS_workspace *workspace)
 {
 	int S_j = 0;
 	int g, num_x = 2;
@@ -204,8 +204,7 @@ int update_pos_j(double* P, double* A, double* B, double** W_Logit, int** W_Ind,
 		argvec[2] = R;
 		argvec[1] = bj;
 
-		aj = sample_conditional(xA, &num_x, nmax, argvec, workspace, rng, eps, lc_AB, lcp_AB);
-
+		aj = sample_conditional(xA, &num_x, nmax, argvec, workspace, rng, lc_AB, lcp_AB);
 		if(aj == -1.0)
 		{
 			return(0);
@@ -216,7 +215,7 @@ int update_pos_j(double* P, double* A, double* B, double** W_Logit, int** W_Ind,
 		argvec[2] = R;
 		argvec[1] = aj;
 
-		bj = sample_conditional(xB, &num_x, nmax, argvec, workspace, rng, eps, lc_AB, lcp_AB);
+		bj = sample_conditional(xB, &num_x, nmax, argvec, workspace, rng, lc_AB, lcp_AB);
 		if(bj == -1.0)
 		{
 			return(0);
@@ -315,7 +314,7 @@ void initialize_parms(
 	{
 		Sig2[g] = expr_vars[g];
 		Mu[g] = expr_means[g] + sqrt(Sig2[g])*RngStream_N01(rng);
-		C[g] = (double)(*n_snps);
+		C[g] = (double)(*n_indivs);
 	}
 
 	for(j = 0; j < *n_snps; j++)
@@ -374,7 +373,6 @@ void initialize_parms(
 			{
 				Gamma[j][g]= 0;
 			}
-
 			if(W_Ind[j][g] == 0 & Gamma[j][g]== 1)
 			{
 				Rprintf("W_ind = %d, Gam = %d\n", W_Ind[j][g], Gamma[j][g]);

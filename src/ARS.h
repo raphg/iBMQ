@@ -31,6 +31,7 @@ typedef struct ARS_WORKSPACE ARS_workspace;
 #include <stdio.h>
 #include <math.h>
 #include <Rversion.h>
+#include <float.h>
 
 #if (R_VERSION >= R_Version(2,3,0))
 #define R_INTERFACE_PTRS 1
@@ -47,7 +48,7 @@ double sample_conditional(double* restrict x,
 		double* restrict argvec,
 		ARS_workspace *ws,
 		RngStream rng,
-		double eps, double (*h)(const double, const double *),
+		double (*h)(const double, const double *),
 		double (*h_prime)(const double , const double *));
 
 int update_hull(double* restrict x,

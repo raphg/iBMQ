@@ -40,16 +40,16 @@ void update_gene_g(ptr_m_el beta_g, int** Gamma, double** W_Logit,
 		double* C_g, double* Mu_g, double* Sig2_g,
 		const double* expr_means, const double* expr_vars, const double* alpha2_beta,
 		int* n_snps, int* n_genes, int* n_indivs, int g, const gsl_vector* one, RngStream rng,
-		ptr_memChunk ptr_chunk_g, int variable_C);
+		ptr_memChunk ptr_chunk_g);
 
 void store_mcmc_output(FILE *Afile, FILE *Bfile, FILE *Pfile, FILE *Mufile, FILE *Sig2file,
 		FILE *Cfile,
 		int *n_snps, int *n_genes, double* restrict A, double* restrict B, double* restrict P,
-		double* restrict Mu, double* restrict Sig2, double* restrict C, int variable_C);
+		double* restrict Mu, double* restrict Sig2, double* restrict C);
 
 void c_qtl_main_parallel_sparse(double *gene, int *n_indivs, int *n_genes, double *snp,
 		int *n_snps, int *n_iter, int *burn_in, int *n_sweep, double *outProbs, int *nP, int *nmax,
-		double *eps, int *write_output, int *variable_C)
+		int *write_output)
 {
 	R_CStackLimit = (uintptr_t)-1;
 
@@ -91,11 +91,8 @@ void c_qtl_main_parallel_sparse(double *gene, int *n_indivs, int *n_genes, doubl
 		Pfile = fopen("pfile.txt", "w");
 		Mufile = fopen("Mufile.txt", "w");
 		Sig2file = fopen("Sig2file.txt", "w");
+		Cfile = fopen("cfile.txt", "w");
 
-		if(*variable_C)
-		{
-			Cfile = fopen("cfile.txt", "w");
-		}
 	}
 	//statically allocated workspace for Adaptive Rejection Sampling
 	ARS_workspace workspace;
@@ -163,7 +160,7 @@ void c_qtl_main_parallel_sparse(double *gene, int *n_indivs, int *n_genes, doubl
 	double* tau_0 = &tau0;
 
 	// initialize random number streams
-	Rprintf("%d processors running \n", *nP);
+	Rprintf("eQTL running with %d threads \n", *nP);
 	GetRNGstate();
 	unsigned long seed[6];
 	for(j = 0; j < 6; j++)
@@ -203,13 +200,12 @@ void c_qtl_main_parallel_sparse(double *gene, int *n_indivs, int *n_genes, doubl
 	gsl_vector_set_all(one, 1.0);
 	ptr_memChunk chunk_g;
 
-	Rprintf("initialization successful\n");
-	for(iter=0; iter <= (*burn_in+(*n_sweep)*(*n_iter)); iter++)
+	int total_iterations = *burn_in+(*n_sweep)*(*n_iter);
+	int percent_complete = 10;
+
+	Rprintf("Initialization complete. Beginning MCMC.\n");
+	for(iter=0; iter <= total_iterations; iter++)
 	{
-		if(iter% 1000 == 0)
-		{
-			Rprintf("******** iter %d *********\n",1+iter);
-		}
 		//if the user wants to interrupt computation (^C)
 		R_CheckUserInterrupt();
 		// update genes and positions
@@ -225,8 +221,7 @@ void c_qtl_main_parallel_sparse(double *gene, int *n_indivs, int *n_genes, doubl
 				update_gene_g(Beta[g], Gamma, W_Logit, W_Ind, X,
 						&Y_g.vector, &(C[g]), &(Mu[g]), &(Sig2[g]),
 						expr_means, expr_vars, alpha2_beta,
-						n_snps, n_genes, n_indivs, g, one, rngs[th_id], chunk_g,
-						*variable_C);
+						n_snps, n_genes, n_indivs, g, one, rngs[th_id], chunk_g);
 			}
 
 			#pragma omp for
@@ -235,7 +230,7 @@ void c_qtl_main_parallel_sparse(double *gene, int *n_indivs, int *n_genes, doubl
 				update_pos_j(P, A, B, W_Logit, W_Ind, Gamma,
 						j, a_0, b_0, lambda_a, lambda_b,
 						n_genes, rngs[th_id], *nmax,
-						xA[j], xB[j], &workspace, *eps);
+						xA[j], xB[j], &workspace);
 			}
 		}
 
@@ -245,12 +240,18 @@ void c_qtl_main_parallel_sparse(double *gene, int *n_indivs, int *n_genes, doubl
 			if(*write_output != 0)
 			{
 				store_mcmc_output(Afile, Bfile, Pfile, Mufile, Sig2file, Cfile,
-						n_snps, n_genes, A, B, P, Mu, Sig2, C, *variable_C);
+						n_snps, n_genes, A, B, P, Mu, Sig2, C);
 			}
 
 		}
+
+		if( 100*((double) iter)/total_iterations >= percent_complete)
+		{
+			Rprintf("MCMC %d percent complete\n", percent_complete);
+			percent_complete += 10;
+		}
 	}
-	// outputs estimate of P(gamma[j][g] = 1 | data), and free resources
+	// outputs estimate of P(gamma[j][g] = 1 | data)
 	store_prob_include(n_iter, n_snps, n_genes, ProbSum, outProbs);
 
 	gsl_matrix_free(X);
@@ -269,10 +270,7 @@ void c_qtl_main_parallel_sparse(double *gene, int *n_indivs, int *n_genes, doubl
 		fclose(Pfile);
 		fclose(Mufile);
 		fclose(Sig2file);
-		if(*variable_C)
-		{
-			fclose(Cfile);
-		}
+		fclose(Cfile);
 	}
 	return;
 }
@@ -282,27 +280,24 @@ void update_gene_g(ptr_m_el beta_g, int** Gamma,  double** W_Logit,
 		double* C_g, double* Mu_g, double* Sig2_g,
 		const double* expr_means, const double* expr_vars, const double* alpha2_beta,
 		int* n_snps, int* n_genes, int* n_indivs, int g, const gsl_vector* one, RngStream rng,
-		ptr_memChunk ptr_chunk_g, int variable_C)
+		ptr_memChunk ptr_chunk_g)
 {
 	gsl_vector* Y_minus_mu_g = gsl_vector_calloc(*n_indivs);
+	gsl_vector* Xbeta_sum_g = gsl_vector_calloc(*n_indivs);
+	gsl_vector* Resid_minus_j = gsl_vector_calloc(*n_indivs);
 
 	gsl_blas_dcopy(Y_g, Y_minus_mu_g);
 	gsl_vector_add_constant(Y_minus_mu_g, -1.0*(*Mu_g));
-
-	gsl_vector* Xbeta_sum_g = gsl_vector_calloc(*n_indivs);
 	gsl_vector_set_all(Xbeta_sum_g, 0.0);
 
-	gsl_vector* Resid_minus_j = gsl_vector_calloc(*n_indivs);
 	int i, j, cur;
 	double S_j, v1, v2, p1, w_jg, temp, logodds;
 	double Cg = *C_g;
 	double Sg = *Sig2_g;
+	v1 = -.5*log1p(Cg);
 
 	// X %*% B_g   (fitted expression values for gene g), using the sparse representation of beta
 	SV_gsl_dmvpy(X, beta_g, Xbeta_sum_g->data, *n_indivs);
-
-	v1 = -.5*log1p(Cg);
-
 	for(j = 0; j < *n_snps; j++)
 	{
 		if(W_Ind[j][g] == 1)
@@ -313,7 +308,6 @@ void update_gene_g(ptr_m_el beta_g, int** Gamma,  double** W_Logit,
 			{
 				gsl_blas_daxpy(-1.0*SV_get(beta_g, j), &X_j.vector, Xbeta_sum_g);
 			}
-
 			gsl_blas_dcopy(Y_minus_mu_g, Resid_minus_j);
 			gsl_blas_daxpy(-1.0, Xbeta_sum_g, Resid_minus_j);
 
@@ -321,13 +315,10 @@ void update_gene_g(ptr_m_el beta_g, int** Gamma,  double** W_Logit,
 			gsl_blas_ddot(&X_j.vector, Resid_minus_j, &S_j);
 
 			v2 = alpha2_beta[j]*(Cg)/(1.0 + (Cg));
-
 			logodds = v1 + 0.5*v2*pow(S_j,2)/(Sg) + W_Logit[j][g];
 
-			// update gammas
+			// update gammas and betas
 			cur = (int)(logit(RngStream_RandU01(rng)) <= logodds);
-
-			// update betas
 			if(Gamma[j][g] == 1 && cur == 0)
 			{
 				// removing element j is the same as setting it to zero in a sparse representation
@@ -353,43 +344,30 @@ void update_gene_g(ptr_m_el beta_g, int** Gamma,  double** W_Logit,
 	}
 
 	//update C_g
-	if(variable_C)
-	{
-		double G_g = 0.0;
-		v1=(1.0)/2.0;
-
-		for(j = 0;j < *n_snps; j++)
-		{
-			if(Gamma[j][g] == 1)
-			{
-				v1 += (double)(Gamma[j][g])/2.0;
-				G_g += gsl_pow_2(SV_get(beta_g, j))/alpha2_beta[j];
-			}
-		}
-
-		v2 = (double)*n_indivs/2.0 + G_g/(2.0*(Sg));
-		Cg = v2/RngStream_GA1(v1, rng);
-		*C_g = Cg;
-	}
-
-	//update Sig2_g
 	double G_g = 0.0;
-	v1=(1.0)/2.0;
+	v1 = .5;
 
-	for(j = 0;j < *n_snps; j++)
+	for(j = 0; j < *n_snps; j++)
 	{
-		v1+=(double)(Gamma[j][g])/2.;
 		if(Gamma[j][g] == 1)
 		{
+			v1 += .5;
 			G_g += gsl_pow_2(SV_get(beta_g, j))/alpha2_beta[j];
 		}
 	}
-	G_g = G_g/(Cg); // (C_g is fixed equal to number of subjects
+
+	v2 = (double)*n_indivs/2.0 + G_g/(2.0*(Sg));
+	Cg = v2/RngStream_GA1(v1, rng);
+	*C_g = Cg;
+
+	//update Sig2_g
+	G_g = G_g / Cg;
 
 	for(i = 0; i < *n_indivs; i++)
 	{
 		G_g += gsl_pow_2(gsl_vector_get(Y_minus_mu_g, i) - gsl_vector_get(Xbeta_sum_g, i));
 	}
+
 	v1 += (double)*n_indivs/2.0;
 	G_g = G_g/2.0;
 
@@ -397,7 +375,6 @@ void update_gene_g(ptr_m_el beta_g, int** Gamma,  double** W_Logit,
 	*Sig2_g = Sg;
 
 	//update Mu_g
-
 	double sum_y, sum_G_g, si;
 
 	gsl_blas_ddot(Y_g, one, &sum_y);
@@ -420,7 +397,7 @@ void update_gene_g(ptr_m_el beta_g, int** Gamma,  double** W_Logit,
 void store_mcmc_output(FILE *Afile, FILE *Bfile, FILE *Pfile, FILE *Mufile, FILE *Sig2file,
 		FILE *Cfile,
 		int *n_snps, int *n_genes, double* restrict A, double* restrict B, double* restrict P,
-		double* restrict Mu, double* restrict Sig2, double* restrict C, int variable_C)
+		double* restrict Mu, double* restrict Sig2, double* restrict C)
 {
 	int g,j;
 
@@ -432,10 +409,8 @@ void store_mcmc_output(FILE *Afile, FILE *Bfile, FILE *Pfile, FILE *Mufile, FILE
 
 		fprintf(Mufile, "%f\t", mg);
 		fprintf(Sig2file, "%f\t", sg);
-		if(variable_C)
-		{
-			fprintf(Cfile, "%f\t", cg);
-		}
+		fprintf(Cfile, "%f\t", cg);
+
 	}
 	for(j = 0; j < *n_snps; j++)
 	{
@@ -453,9 +428,8 @@ void store_mcmc_output(FILE *Afile, FILE *Bfile, FILE *Pfile, FILE *Mufile, FILE
 	fprintf(Pfile, "\n");
 	fprintf(Mufile, "\n");
 	fprintf(Sig2file, "\n");
-	if(variable_C)
-	{
-		fprintf(Cfile, "\n");
-	}
+	fprintf(Cfile, "\n");
+
 	return;
 }
+
