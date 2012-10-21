@@ -267,6 +267,7 @@ double sample_conditional(double* restrict x,
 
 	print_hull(x, ws, num_x);
 	error("Rejection Sampler failed \n");
+	return(0.0);
 }
 
 // insert a new abcissae in the hull, update the Z values, H, Hprime, max hull values
