@@ -8,7 +8,7 @@ hotspotFinder
 One main advantage of our method is its increased sensitivity for finding trans-eQTL hotspots (corresponding to situations where a single SNP is linked to the expression of several genes across the genome).
 }
 \usage{
-hotspot.finder(peak, numgene)
+hotspotFinder(peak, numgene)
 }
 \arguments{
   \item{peak}{
