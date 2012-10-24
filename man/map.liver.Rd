@@ -10,9 +10,9 @@ A data frame specifying the genomiclocations of each SNP with following columns
 \format{
   A data frame with 290 observations on the following 3 variables.
 \describe{
-    \item{\code{SNP}}{a character vector}
-    \item{\code{Chr}}{a numeric vector}
-    \item{\code{Mb}}{a numeric vector}
+    \item{\code{V1}}{a character vector}
+    \item{\code{V2}}{a numeric vector}
+    \item{\code{V3}}{a numeric vector}
   }
   }
 \source{

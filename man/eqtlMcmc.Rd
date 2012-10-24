@@ -10,7 +10,7 @@ Compute MCMC algorithm to produce Posterior Probability of Association for
   eQTL mapping.   }
 \usage{
 eqtlMcmc(snp, expr, n.iter, burn.in, n.sweep, mc.cores,
- write.output = TRUE)
+ write.output = TRUE, RIS = TRUE)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{

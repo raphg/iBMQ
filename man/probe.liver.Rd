@@ -11,10 +11,10 @@ A data frame specifying the genomic locations of each gene/probe needs to be pre
 \format{
   A data frame with 4427 observations on the following 4 variables.
  \describe{
-    \item{\code{ProbesetID}}{a character vector}
-    \item{\code{Chr}}{a numeric vector}
-    \item{\code{Start}}{a numeric vector}
-    \item{\code{end}}{a numeric vector}
+    \item{\code{affy_mouse430a_2}}{a character vector}
+    \item{\code{chromosome_name}}{a numeric vector}
+    \item{\code{end_position}}{a numeric vector}
+    \item{\code{start_position}}{a numeric vector}
   }
  }
 
