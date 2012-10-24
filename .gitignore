@@ -51,3 +51,13 @@ src/norm_gamma_generation.o
 src/RngStream.o
 src/sparse.o
 src/symbols.rds
+a.out.dSYM/Contents/Info.plist
+a.out.dSYM/Contents/Resources/DWARF/a.out
+autom4te.cache/output.0
+autom4te.cache/output.1
+autom4te.cache/requests
+autom4te.cache/traces.0
+autom4te.cache/traces.1
+config.log
+config.status
+src/Makevars
