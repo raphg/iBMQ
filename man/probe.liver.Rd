@@ -9,13 +9,9 @@ A data frame specifying the genomic locations of each gene/probe needs to be pre
 }
 \usage{data(probe.liver)}
 \format{
-  A data frame with 4427 observations on the following 4 variables.
- \describe{
-    \item{\code{affy_mouse430a_2}}{a character vector}
-    \item{\code{chromosome_name}}{a numeric vector}
-    \item{\code{end_position}}{a numeric vector}
-    \item{\code{start_position}}{a numeric vector}
-  }
+  A data frame with 4427 observations with the following columns: gene name, chromosome number, start location (in base pairs) and the location (in base pairs).
+
+  
  }
 
 \source{

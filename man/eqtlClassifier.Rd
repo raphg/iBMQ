@@ -13,16 +13,16 @@ eqtlClassifier(peak, posSNP, posGENE, max)
 
 \arguments{
   \item{peak}{
-A data.frame of significant eQTL (the output of the findEqtl function)
+A data.frame of significant eQTLs (the output of the findEqtl function)
 }
   \item{posSNP}{
-A a data frame specifying the genomic locations of the SNPs.
+A  data frame specifying the genomic locations of genomic markers (i.e. SNPs).
 }
   \item{posGENE}{
-A data frame specifying the genomic locations of the gene/probe.
+A data frame specifying the genomic locations of the genes (or probes).
 }
   \item{max}{
-A cutoff value (in base pair) corresponding to the threshold where a eQTLis considered a cis-eQTL. A numerical value.}
+A cutoff value (in base pair) corresponding to the threshold where a eQTLis considered to be cis-eQTL. A numerical value.}
 }
 
 \value{

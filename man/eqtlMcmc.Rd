@@ -6,7 +6,7 @@ Bayesian Multiple eQTL mapping using MCMC
 
 \description{
 
-Compute MCMC algorithm to produce Posterior Probability of Association for 
+Compute the MCMC algorithm to produce Posterior Probability of Association values for 
   eQTL mapping.   }
 \usage{
 eqtlMcmc(snp, expr, n.iter, burn.in, n.sweep, mc.cores,
@@ -22,13 +22,13 @@ eqtlMcmc(snp, expr, n.iter, burn.in, n.sweep, mc.cores,
   \item{mc.cores}{The number of cores you would like to use for 
   	parallel processing. Can be set be set via `options(cores=4)', if not set, 
 	the code will automatically detect the number of cores.} 
-  \item{write.output}{Write chain iterations to file? If TRUE, 
+  \item{write.output}{Write chain iterations to file. If TRUE, 
   	output for variables will be written to files created in 
   	the working directory.}
-  \item{RIS}{If TRUE, the genotype need to be 0 and 1. If FALSE the genotype need to be 1,2 and 3.}
+  \item{RIS}{If TRUE, the genotype needs to be either 0 and 1. If FALSE the genotype need to be either 1,2 and 3.}
 }
 
 \value{
-A matrix with Posterior Probability of Association. Rows correspond to snps
-from original snp data object, columns correspond to genes from expr data object.
+A matrix with Posterior Probability of Association values. Rows correspond to snps
+from original snp data objects, columns correspond to genes from expr data objects.
 }

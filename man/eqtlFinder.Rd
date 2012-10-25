@@ -11,9 +11,9 @@ eqtlFinder(prob, threshold)
 }
 
 \arguments{
-  \item{prob}{matrix or data frame that contains Posterior   Probability of Association  (output of eqtlMcmc function)
+  \item{prob}{matrix or data frame that contains the Posterior   Probability of Association  values (output of eqtlMcmc function)
 }
-  \item{threshold}{Threshold to use for significant QTL. This value can be the output of the calculateThreshold function.It must be a numerical value between 0 and 1.
+  \item{threshold}{Threshold to be used to determine which QTLs are significant. This value can be the output of the calculateThreshold function.It must be a numerical value between 0 and 1.
 }
 }
 
