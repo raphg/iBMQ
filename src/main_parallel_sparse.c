@@ -6,6 +6,7 @@
  */
 
 #include <R.h>
+#include <R_ext/Rdynload.h>
 #include <Rmath.h>
 #include "RngStream.h"
 #include "norm_gamma_generation.h"
@@ -16,7 +17,6 @@
 #include <omp.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <time.h>
 #include <math.h>
 #include <Rversion.h>
 
@@ -24,7 +24,6 @@
 #include <gsl/gsl_matrix.h>
 #include <gsl/gsl_vector.h>
 #include <gsl/gsl_blas.h>
-#include <gsl/gsl_linalg.h>
 #include <gsl/gsl_statistics_double.h>
 #include <gsl/gsl_sf.h>
 #include <gsl/gsl_check_range.h>
@@ -34,6 +33,10 @@
 #define CSTACK_DEFNS 1
 #include <Rinterface.h>
 #endif
+
+void iBMQ_main(double *gene, int *n_indivs, int *n_genes, double *snp,
+		int *n_snps, int *n_iter, int *burn_in, int *n_sweep, double *outProbs, int *nP, int *nmax,
+		int *write_output);
 
 void update_gene_g(ptr_m_el beta_g, int** Gamma, double** W_Logit,
 		int** W_Ind, gsl_matrix* X, const gsl_vector* Y_g,
@@ -47,7 +50,7 @@ void store_mcmc_output(FILE *Afile, FILE *Bfile, FILE *Pfile, FILE *Mufile, FILE
 		int *n_snps, int *n_genes, double* restrict A, double* restrict B, double* restrict P,
 		double* restrict Mu, double* restrict Sig2, double* restrict C);
 
-void c_qtl_main_parallel_sparse(double *gene, int *n_indivs, int *n_genes, double *snp,
+void iBMQ_main(double *gene, int *n_indivs, int *n_genes, double *snp,
 		int *n_snps, int *n_iter, int *burn_in, int *n_sweep, double *outProbs, int *nP, int *nmax,
 		int *write_output)
 {
@@ -56,9 +59,6 @@ void c_qtl_main_parallel_sparse(double *gene, int *n_indivs, int *n_genes, doubl
 	int iter, i, j, g, th_id = 0;
 
 	// initialize a memory pool for linked list elements of the sparse matrix;
-	// it's way bigger than it needs to be, just to be on the safe side,
-	// and to facilitate a more simple implementation.
-
 	memPool pool;
 	ptr_memPool ptr_pool = &pool;
 	initializePool(*n_genes, (*n_snps+2), ptr_pool);
@@ -183,7 +183,7 @@ void c_qtl_main_parallel_sparse(double *gene, int *n_indivs, int *n_genes, doubl
 	}
 
 	//set hyperparameters for prior distributions, compute
-	// auxiallary quantities
+	// auxillary quantities
 	set_prior(lambda_a, lambda_b, a_0, b_0, tau_0, expr_means,
 			expr_vars, alpha2_beta, X, Y, rngs[0]);
 
@@ -200,6 +200,7 @@ void c_qtl_main_parallel_sparse(double *gene, int *n_indivs, int *n_genes, doubl
 	gsl_vector_set_all(one, 1.0);
 	ptr_memChunk chunk_g;
 
+	// for messages to update progess to console
 	int total_iterations = *burn_in+(*n_sweep)*(*n_iter);
 	int percent_complete = 10;
 
@@ -431,5 +432,17 @@ void store_mcmc_output(FILE *Afile, FILE *Bfile, FILE *Pfile, FILE *Mufile, FILE
 	fprintf(Cfile, "\n");
 
 	return;
+}
+
+
+static const R_CMethodDef cMethods[] = {
+		{"iBMQ_main", (DL_FUNC) &iBMQ_main, 12},
+		{NULL, NULL, 0}
+};
+
+void R_init_iBMQ(DllInfo *info)
+{
+	R_registerRoutines(info, cMethods, NULL, NULL, NULL);
+	R_useDynamicSymbols(info, FALSE);
 }
 

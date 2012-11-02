@@ -59,11 +59,8 @@ else{
 
 }
 	
-	
-	
 pheno <- unlist(mat.expr)
 	
-
 start.time <- Sys.time()
 outProb <- double(length = n.snp*n.pheno)
 
@@ -72,9 +69,9 @@ cores <- mc.cores
 if (is.null(cores)) cores <- parallel:::detectCores()
 cores <- as.integer(cores)
 
-c.function="c_qtl_main_parallel_sparse"
+
 nmax <- 500
-res <- .C(c.function,as.double(pheno),as.integer(n.indiv),
+res <- .C(C_iBMQ_main,as.double(pheno),as.integer(n.indiv),
 		as.integer(n.pheno),as.double(mat.snp),as.integer(n.snp),
 		as.integer(n.iter),as.integer(burn.in),as.integer(n.sweep),
 		as.double(outProb), cores, as.integer(nmax),
