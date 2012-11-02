@@ -39,9 +39,6 @@ typedef struct ARS_WORKSPACE ARS_workspace;
 #include <Rinterface.h>
 #endif
 
-#include <gsl/gsl_math.h>
-#include <gsl/gsl_sf.h>
-
 double sample_conditional(double* restrict x,
 		int* restrict num_x,
 		int nmax,

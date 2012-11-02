@@ -22,10 +22,6 @@
 #include <Rinterface.h>
 #endif
 
-#include <gsl/gsl_math.h>
-#include <gsl/gsl_sf.h>
-
-
 /* Reference:
  * Gilks and Wild (1992)
  * "Adaptive Rejection Sampling for Gibbs Sampling"

@@ -17,7 +17,6 @@
 #include <omp.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include <time.h>
 #include <math.h>
 #include <Rversion.h>
 
@@ -25,7 +24,6 @@
 #include <gsl/gsl_matrix.h>
 #include <gsl/gsl_vector.h>
 #include <gsl/gsl_blas.h>
-#include <gsl/gsl_linalg.h>
 #include <gsl/gsl_statistics_double.h>
 #include <gsl/gsl_sf.h>
 #include <gsl/gsl_check_range.h>
