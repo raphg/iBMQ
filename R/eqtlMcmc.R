@@ -77,9 +77,8 @@ res <- .C(C_iBMQ_main,as.double(pheno),as.integer(n.indiv),
 		as.double(outProb), cores, as.integer(nmax),
 		as.integer(write.output))
 end.time <- Sys.time()
-cat("Running MCMC took ")
-cat(as.character(round(difftime(end.time,start.time,units="min"),digits=2)))
-cat(" minutes.\n")
+minutes = as.character(round(difftime(end.time,start.time,units="min"),digits=2))
+message("Computation took ", minutes, " minutes.")
 dim(res[[9]]) <- c(n.snp, n.pheno)
 out<-res[[9]]
 colnames(out)<-names.gene
