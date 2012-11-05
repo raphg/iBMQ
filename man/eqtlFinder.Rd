@@ -21,3 +21,10 @@ eqtlFinder(prob, threshold)
 The output of the eqtlFinder is a data frame where the first column contains the names of each gene, the second column contains the names of corresponding markers and the third column contains the PPA value for each significant eQTL.
 }
 
+\examples{
+data(PPA.liver)
+cutoff.liver <- calculateThreshold(PPA.liver, 0.2)
+eqtl.liver <- eqtlFinder(PPA.liver, cutoff.liver)
+
+}
+

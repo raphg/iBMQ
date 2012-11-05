@@ -32,3 +32,8 @@ eqtlMcmc(snp, expr, n.iter, burn.in, n.sweep, mc.cores,
 A matrix with Posterior Probability of Association values. Rows correspond to snps
 from original snp data objects, columns correspond to genes from expr data objects.
 }
+\examples{
+data(phenotype.liver)
+data(genotype.liver)
+#PPA.liver <-  eqtlMcmc(genotype.liver, phenotype.liver, n.iter=100,burn.in=100,n.sweep=20,nproc=6, RIS=FALSE)
+}

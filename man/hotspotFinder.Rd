@@ -23,3 +23,10 @@ The minimum of gene to detect.
 \value{
 The output of this function is a list, where each element is a marker. For each markerthere is a data frame with all the eQTLs linked to this marker.
 }
+
+\examples{
+data(PPA.liver)
+cutoff.liver <- calculateThreshold(PPA.liver, 0.2)
+eqtl.liver <- eqtlFinder(PPA.liver, cutoff.liver)
+hotspot.liver <- hotspotFinder(eqtl.liver,20)
+}

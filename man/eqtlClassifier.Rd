@@ -29,4 +29,12 @@ A cutoff value (in base pair) corresponding to the threshold where a eQTLis con
 The output of the eqtlClassifier is a data frame where the first column contains the names of each gene, the second column contains the names of markers and the third column contains the PPA value for each significant eQTL. The fourth column contains the number of the chromosome to which the gene belongs, the fifth column contains the start position of the geneand the sixth column contains the end position of the gene. The seventh column contains the number of the chromosome to which the marker belongs, the eighth column contains position of the marker and the ninth column contains a descriptor of the type of eQTL (either cis or trans). Please note that in order to ascertain that an eQTL is either cis or trans, the positions of the markers and the gene need to the given to the function. If one of the values is missing the type of eQTL will be "NA".
 }
 
+\examples{
+data(PPA.liver)
+cutoff.liver <- calculateThreshold(PPA.liver, 0.2)
+eqtl.liver <- eqtlFinder(PPA.liver, cutoff.liver)
+data(map.liver)
+data(probe.liver)
+eqtl.type.liver <- eqtlClassifier(eqtl.liver, map.liver, probe.liver,5000000)
+}
 
