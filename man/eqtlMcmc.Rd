@@ -32,8 +32,11 @@ eqtlMcmc(snp, expr, n.iter, burn.in, n.sweep, mc.cores,
 A matrix with Posterior Probability of Association values. Rows correspond to snps
 from original snp data objects, columns correspond to genes from expr data objects.
 }
+\references{
+Scott-Boyer, MP., Tayeb, G., Imholte, Labbe, A., Deschepper C., and Gottardo R.  An integrated Bayesian hierarchical model for multivariate eQTL mapping (iBMQ). Statistical Applications in Genetics and Molecular Biology Vol. 11, 2012.}
 \examples{
 data(phenotype.liver)
 data(genotype.liver)
 #PPA.liver <-  eqtlMcmc(genotype.liver, phenotype.liver, n.iter=100,burn.in=100,n.sweep=20,nproc=6, RIS=FALSE)
 }
+
