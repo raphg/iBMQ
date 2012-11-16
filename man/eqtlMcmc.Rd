@@ -37,6 +37,6 @@ Scott-Boyer, MP., Tayeb, G., Imholte, Labbe, A., Deschepper C., and Gottardo R. 
 \examples{
 data(phenotype.liver)
 data(genotype.liver)
-#PPA.liver <-  eqtlMcmc(genotype.liver, phenotype.liver, n.iter=100,burn.in=100,n.sweep=20,nproc=6, RIS=FALSE)
+#PPA.liver <-  eqtlMcmc(genotype.liver, phenotype.liver, n.iter=100,burn.in=100,n.sweep=20,mc.cores=6, RIS=FALSE)
 }
 

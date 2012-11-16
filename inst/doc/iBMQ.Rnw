@@ -120,7 +120,7 @@ If you have an appropriately powered computer, you can calculate the PPAs by run
 \\ 
 
 << Calculate PPA , eval=false>>=
-#  PPA <-  eqtlMcmc(snp, gene, n.iter=100,burn.in=100,n.sweep=20,nproc=6, RIS=TRUE)
+#  PPA <-  eqtlMcmc(snp, gene, n.iter=100,burn.in=100,n.sweep=20,mc.cores=6, RIS=TRUE)
 @ 
 In this example, we will perform only 100 iterations in the interest of time.  Please note that an optimal analysis requires a greater number of iterations (preferably in the order of 100,000, with a burn-in of 50,000). The result is a matrix with Posterior Probabilities of Association for each gene (row) and SNP (column). You can load the PPA matrix previously calculated  with 100,000 iterations  with the following command line:
 \\ 
@@ -196,7 +196,7 @@ data(phenotype.liver)
 Since these functions take a lot of time, we have already calculated the results for 100,000 iterations and 50,000 burn-in. These numbers were suggested by simulation\cite{scottboyer}. Please note that for the F2 data the ``RIS'' parameter needs to be set as equal to FALSE. If you have an appropriately powered computer, you can calculate the PPAs by running the function below. If not, you can skip the function and load pre-computed PPA table instead. 
 \\ 
 << hotpot,eval=false,results=hide>>=
-#PPA.liver <-  eqtlMcmc(genotype.liver, phenotype.liver, n.iter=100,burn.in=100,n.sweep=20,nproc=6, RIS=FALSE)
+#PPA.liver <-  eqtlMcmc(genotype.liver, phenotype.liver, n.iter=100,burn.in=100,n.sweep=20,mc.cores=6, RIS=FALSE)
 @
 << hotpot,results=hide>>=
 data(PPA.liver)
