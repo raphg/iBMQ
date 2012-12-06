@@ -34,7 +34,13 @@
 \section{Download}
 
 \verb@iBMQ@ is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation. For citation purposes, please refer to the first reference in the bibliography.
+\\\\
+To install this package, start R and enter:
 \\
+source("http://bioconductor.org/biocLite.R")
+\\
+biocLite("iBMQ").
+\\\\
 In order to properly compile iBMQ, the GNU Scientific Library (GSL) is required. GSL is free and can be downloaded at http://www.gnu.org/software/gsl/ . A tutorial on how to configure and use GSL and R can be found at http://wiki.rglab.org/ . For calculations with multiple processors (Mac or Linux only), OpenMP needs also to be installed (http://openmp.org/wp/).
 
 \section{Introduction}
@@ -122,11 +128,7 @@ If you have an appropriately powered computer, you can calculate the PPAs by run
 << Calculate PPA , eval=false>>=
 #  PPA <-  eqtlMcmc(snp, gene, n.iter=100,burn.in=100,n.sweep=20,mc.cores=6, RIS=TRUE)
 @ 
-In this example, we will perform only 100 iterations in the interest of time.  Please note that an optimal analysis requires a greater number of iterations (preferably in the order of 100,000, with a burn-in of 50,000). The result is a matrix with Posterior Probabilities of Association for each gene (row) and SNP (column). You can load the PPA matrix previously calculated  with 100,000 iterations  with the following command line:
-\\ 
-<< loading PPA,eval=false>>=
-data(PPA)
-@
+In this example, we will perform only 100 iterations in the interest of time.  Please note that an optimal analysis requires a greater number of iterations (preferably in the order of 100,000, with a burn-in of 50,000). The result is a matrix with Posterior Probabilities of Association for each gene (row) and SNP (column). 
 
 \section{Computing the FDR Threshold for eQTL identification:}
 
