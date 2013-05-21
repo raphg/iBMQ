@@ -61,3 +61,9 @@ autom4te.cache/traces.1
 config.log
 config.status
 src/Makevars
+.Rbuildignore
+.cproject
+.project
+iBMQ.Rproj
+.Rproj.user*
+.Rhistory
