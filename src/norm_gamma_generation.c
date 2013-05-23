@@ -45,16 +45,10 @@
  * generator used in the iBMQ code for eQTL mapping, rather than GSL routines.
  */
 
-#include <R.h>
-#include <Rinterface.h>
-#include <R_ext/Error.h>
-#include <math.h>
-#include "RngStream.h"
+
 #include "norm_gamma_generation.h"
-#include <float.h>
 
-
-#define expmax	(DBL_MAX_EXP * M_LN2)/* = log(DBL_MAX) */
+#define expmax (DBL_MAX_EXP * M_LN2)/* = log(DBL_MAX) */
 
 /* position of right-most step */
 #define PARAM_R 3.44428647676
@@ -236,7 +230,7 @@ double RngStream_GA1 (const double a, RngStream r)
   {
     double x, v, u;
     double d = a - 1.0 / 3.0;
-    double c = (1.0 / 3.0) / sqrt (d);
+    const double c = (1.0 / 3.0) / sqrt (d);
 
     while (1)
       {
@@ -383,31 +377,24 @@ double RngStream_Beta(double aa, double bb, RngStream rng)
 }
 
 // sample the logit transformation of a Beta(a,b) random variable
-double RngStream_LogitBeta(double a, double b, RngStream rng)
+double RngStream_LogitBeta(double a, const double b, RngStream rng)
 {
-	double x,top,bot;
-	if(a < .25)
-	{
+	double x, top, bot;
+	if (a < .25) {
 		top = (1.0/a)*log(RngStream_RandU01(rng)) + log(RngStream_GA1(1.0 + a,rng));
-	}
-	else
-	{
+	} else {
 		top = log(RngStream_GA1(a, rng));
 	}
 
-	if(b < .25)
-	{
+	if (b < .25) {
 		bot = (1.0/b)*log(RngStream_RandU01(rng)) + log(RngStream_GA1(1.0 + b,rng));
-	}
-	else
-	{
+	} else {
 		bot = log(RngStream_GA1(b, rng));
 	}
 
 	x = top - bot;
 
-	if(isinf(x) || isnan(x))
-	{
+	if (isinf(x) || isnan(x)) {
 		Rprintf("a = %.5lf, b = %.5lf, invalid sample value in logit_beta sampler\n", a, b);
 		error("error sampling logit-beta\n");
 	}
