@@ -2,7 +2,7 @@
  * iBMQ_common.c
  *
  *  Created on: Feb 28, 2012
- *      Author: hoblitz
+ *      Author: Gregory Imholte
  */
 
 #include "iBMQ_common.h"
@@ -14,7 +14,6 @@
 #include "ARS.h"
 
 #include <float.h>
-#include <omp.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
@@ -28,56 +27,39 @@
 #include <gsl/gsl_sf.h>
 #include <gsl/gsl_check_range.h>
 
-#if (R_VERSION >= R_Version(2,3,0))
-#define R_INTERFACE_PTRS 1
-#define CSTACK_DEFNS 1
-#include <Rinterface.h>
-#endif
-
-//#define ZZERO 2.0e-308
-inline double expit(double x)
+inline double expit(const double x)
 {
 	double expit;
 	expit = 1.0/(1.0 + exp(-x));
 	return(expit);
 }
 
-inline double log_from_logit(double x)
+inline double log_from_logit(const double x)
 {
-	if(x > 0.0)
-	{
+	if (x > 0.0) {
 		return(-log1p(exp(-x)));
-	}
-	else
-	{
+	} else {
 		return(x - log1p(exp(x)));
 	}
 }
 
-inline double log1m_from_logit(double x)
+inline double log1m_from_logit(const double x)
 {
-	if(x > 0.0)
-	{
+	if (x > 0.0) {
 		return(-x - log1p(exp(-x)));
-	}
-	else
-	{
+	} else {
 		return(-log1p(exp(x)));
 	}
 }
 
-double logit(double x)
+double logit(const double x)
 {
-	if(x == 0.0)
-	{
+	if (x == 0.0) {
 		return(-DBL_MAX);
 	}
-	else if(x == 1.0)
-	{
+	else if (x == 1.0) {
 		return(DBL_MAX);
-	}
-	else
-	{
+	} else {
 		double out = log(x) - log1p(-x);
 		return(out);
 	}
@@ -94,7 +76,6 @@ double lc_AB(const double x, const double *argvec)
 	const double B = arg0*lgamma(x + arg1);
 	const double C = -1.0 * x * arg2;
 
-	//out = -1.0*x*argvec[2] + argvec[0]*lgamma(x + argvec[1]) - argvec[0]*lgamma(x);
 	out = C + B - A;
 	return(out);
 }
@@ -109,49 +90,39 @@ double lcp_AB(const double x, const double *argvec)
 	const double A = arg0*gsl_sf_psi(x);
 	const double B = arg0*gsl_sf_psi(x + arg1);
 
-	//out = -1.0*argvec[2] + argvec[0]*gsl_sf_psi(x + argvec[1]) -
-	// argvec[0]*gsl_sf_psi(x);
 	out = -1.0*arg2 + B - A;
 	return(out);
 }
 
-//________________store prob_include_____________//
-void store_prob_include(int *n_iter, int *n_snps, int *n_genes, int** ProbSum, double* outProbs)
+void store_prob_include(const int n_iter, const int n_snps,
+		const int n_genes, int** ProbSum, double* outProbs)
 {
-	int g,j;
-	for(g = 0; g < *n_genes; g++)
-	{
-		for(j = 0; j < *n_snps; j++)
-		{
-			outProbs[*n_snps*g + j] = (double)(ProbSum[j][g])/(double)(*n_iter);
+	int g, j;
+	for(g = 0; g < n_genes; g++) {
+		for(j = 0; j < n_snps; j++) {
+			outProbs[n_snps*g + j] =
+					(double)(ProbSum[j][g]) / (double)(n_iter);
 		}
 	}
 	return;
 }
 
-
-void update_prob_include(int* n_snps, int* n_genes, int** Gamma, int** ProbSum)
+void update_prob_include(const int n_snps, const int n_genes,
+		int** Gamma, int** ProbSum)
 {
-	int g,j;
-	int new;
-	for(j = 0; j < *n_snps; j++)
-	{
-		for(g = 0; g < *n_genes; g++)
-		{
+	int g, j;
+	for(j = 0; j < n_snps; j++) {
+		for(g = 0; g < n_genes; g++) {
 			const int ps_jg = ProbSum[j][g];
 			const int g_jg = Gamma[j][g];
-
-			new = ps_jg + g_jg;
-
-			ProbSum[j][g] = new;
+			ProbSum[j][g] = ps_jg + g_jg;;
 		}
 	}
 	return;
 }
 
-
-int update_pos_j(double* P, double* A, double* B, double** W_Logit, int** W_Ind,
-		int** Gamma,
+int update_pos_j(double* P, double* A, double* B, double** W_Logit,
+		int** W_Ind, int** Gamma,
 		int j, double* a_0, double* b_0, double* lambda_a, double* lambda_b,
 		int* n_genes, RngStream rng, int nmax,
 		double *xA, double *xB, ARS_workspace *workspace)
@@ -172,24 +143,17 @@ int update_pos_j(double* P, double* A, double* B, double** W_Logit, int** W_Ind,
 	double pj = P[j];
 
 	// count the number of genes turned on for snp j
-	for(g = 0; g < *n_genes; g++)
-	{
+	for(g = 0; g < *n_genes; g++) {
 		S_j += W_Ind_j[g];
 	}
 
-	if(S_j == 0)
-	{
+	if(S_j == 0) {
 		aj = RngStream_GA1(1.0, rng)/(*lambda_a);
 		bj = RngStream_GA1(1.0, rng)/(*lambda_b);
-	}
-
-	else
-	{
+	} else {
 		// update a_j and b_j using ARS; need these quantities
-		for(g = 0; g < *n_genes; g++)
-		{
-			if(W_Ind_j[g] == 1)
-			{
+		for(g = 0; g < *n_genes; g++) {
+			if(W_Ind_j[g] == 1) {
 				const double wlogit = W_Logit_j[g];
 				logp = log_from_logit(wlogit);
 				log1mp = logp - wlogit;
@@ -202,9 +166,9 @@ int update_pos_j(double* P, double* A, double* B, double** W_Logit, int** W_Ind,
 		argvec[2] = R;
 		argvec[1] = bj;
 
-		aj = sample_conditional(xA, &num_x, nmax, argvec, workspace, rng, lc_AB, lcp_AB);
-		if(aj == -1.0)
-		{
+		aj = sample_conditional(xA, &num_x, nmax, argvec, workspace,
+				rng, lc_AB, lcp_AB);
+		if(aj == -1.0) {
 			return(0);
 		}
 
@@ -213,37 +177,34 @@ int update_pos_j(double* P, double* A, double* B, double** W_Logit, int** W_Ind,
 		argvec[2] = R;
 		argvec[1] = aj;
 
-		bj = sample_conditional(xB, &num_x, nmax, argvec, workspace, rng, lc_AB, lcp_AB);
-		if(bj == -1.0)
-		{
+		bj = sample_conditional(xB, &num_x, nmax, argvec, workspace,
+				rng, lc_AB, lcp_AB);
+		if(bj == -1.0){
 			return(0);
 		}
-
 	}
 
-	pj = RngStream_Beta(*a_0 + (double)(*n_genes - S_j), *b_0 + (double)(S_j), rng);
+	pj = RngStream_Beta(*a_0 + (double)(*n_genes - S_j),
+			*b_0 + (double)(S_j), rng);
 
 	// update W, row j (going across genes here)
 	double frac;
 	frac = bj/(aj + bj);
 
-	for(g = 0; g < *n_genes; g++)
-	{
+	for(g = 0; g < *n_genes; g++) {
 		const int GammaJG = Gamma_j[g];
 		ratio = (pj*(double)(GammaJG == 0))/
 				(pj*(double)(GammaJG == 0) + (1.0 - pj)*frac);
 
-		if(RngStream_RandU01(rng) <= ratio)
-		{
+		if(RngStream_RandU01(rng) <= ratio) {
 			W_Ind_j[g] = 0;
-		}
-		else
-		{
+		} else {
 			W_Logit_j[g] = RngStream_LogitBeta(aj + (double)(GammaJG),
 					bj + 1.0 - (double)(GammaJG), rng);
 			W_Ind_j[g] = 1;
 		}
 	}
+
 	A[j] = aj;
 	B[j] = bj;
 	P[j] = pj;
@@ -268,8 +229,7 @@ void set_prior(double* lambda_a, double* lambda_b, double* a_0, double* b_0, dou
 	gsl_vector_view tmp;
 
 	//compute emprical mean and variances of gene expression phenotype
-	for(g = 0; g < n_genes; g++)
-	{
+	for(g = 0; g < n_genes; g++) {
 		tmp = gsl_matrix_column(Y, g);
 		expr_means[g] = gsl_stats_mean(tmp.vector.data, tmp.vector.stride, n_indivs);
 		expr_vars[g] = gsl_stats_variance_m(tmp.vector.data, tmp.vector.stride, n_indivs,
@@ -277,8 +237,7 @@ void set_prior(double* lambda_a, double* lambda_b, double* a_0, double* b_0, dou
 	}
 
 	// compute inverse of inner product of X matrix values
-	for(j = 0; j < n_snps; j++)
-	{
+	for(j = 0; j < n_snps; j++) {
 		tmp = gsl_matrix_column(X, j);
 		gsl_blas_ddot(&tmp.vector, &tmp.vector, &out);
 		alpha2_beta[j] = 1.0/(out);
@@ -315,33 +274,28 @@ void initialize_parms(
 		C[g] = (double)(*n_indivs);
 	}
 
-	for(j = 0; j < *n_snps; j++)
-	{
+	for(j = 0; j < *n_snps; j++) {
 		// sample directly from prior distributions
 		A[j] = RngStream_GA1(1.0, rng)/ (*lambda_a);
 		B[j] = RngStream_GA1(1.0, rng)/ (*lambda_b);
 		P[j] = RngStream_Beta(*a_0,*b_0, rng);
 
-		for(g = 0; g < *n_genes; g++)
-		{
+		for(g = 0; g < *n_genes; g++) {
 			ProbSum[j][g] = 0;
-			if(RngStream_RandU01(rng) <= P[j])
-			{
+			if (RngStream_RandU01(rng) <= P[j]) {
 				W_Ind[j][g] = 0;
 				W_Logit[j][g] = 0.0;
-			}
-			else
-			{
+			} else {
 				W_Ind[j][g] = 1;
 				W_Logit[j][g] = RngStream_LogitBeta(A[j], B[j], rng);
 			}
 		}
 
-		for(g = 0; g < *nmax; g++)
-		{
+		for(g = 0; g < *nmax; g++) {
 			xA[j][g] = 0.0;
 			xB[j][g] = 0.0;
 		}
+
 		xA[j][0] = .1;
 		xB[j][0] = .1;
 		xA[j][1] = 	2.0;
@@ -349,30 +303,21 @@ void initialize_parms(
 
 		ptr_memChunk ptr_chunk_g;
 		double x;
-		for(g = 0; g < *n_genes; g++)
-		{
+		for(g = 0; g < *n_genes; g++) {
 			ptr_chunk_g	 = ptr_pool->array_head[g];
-			if(W_Ind[j][g] == 1)
-			{
-				if(RngStream_RandU01(rng) <= expit(W_Logit[j][g]))
-				{
+			if(W_Ind[j][g] == 1) {
+				if (RngStream_RandU01(rng) <= expit(W_Logit[j][g])) {
 					Gamma[j][g] = 1;
-					x = Sig2[g]*alpha2_beta[j]*C[g];
+					x = Sig2[g] * alpha2_beta[j]*C[g];
 					SV_add_el(Beta[g], j, RngStream_N01(rng)*sqrt(x),
 							ptr_chunk_g);
-				}
-				else
-				{
+				} else {
 					Gamma[j][g] = 0;
 				}
-			}
-
-			else
-			{
+			} else {
 				Gamma[j][g]= 0;
 			}
-			if(W_Ind[j][g] == 0 & Gamma[j][g]== 1)
-			{
+			if ((W_Ind[j][g] == 0) & (Gamma[j][g]== 1)) {
 				Rprintf("W_ind = %d, Gam = %d\n", W_Ind[j][g], Gamma[j][g]);
 			}
 		}
