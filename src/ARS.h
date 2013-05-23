@@ -20,24 +20,12 @@ struct ARS_WORKSPACE{
 };
 
 typedef struct ARS_WORKSPACE ARS_workspace;
-
 #endif /* ARS_H_ */
 
 #include <R.h>
-#include <Rmath.h>
 #include "RngStream.h"
-
-#include <stdlib.h>
-#include <stdio.h>
 #include <math.h>
-#include <Rversion.h>
 #include <float.h>
-
-#if (R_VERSION >= R_Version(2,3,0))
-#define R_INTERFACE_PTRS 1
-#define CSTACK_DEFNS 1
-#include <Rinterface.h>
-#endif
 
 double sample_conditional(double* restrict x,
 		int* restrict num_x,
@@ -50,35 +38,35 @@ double sample_conditional(double* restrict x,
 
 int update_hull(double* restrict x,
 		ARS_workspace *ws,
-		double* restrict argvec,
+		const double* restrict argvec,
 		int* restrict num_x,
-		int nmax,
-		double xnew,
-		double hnew,
-		int l_section,
+		const int nmax,
+		const double xnew,
+		const double hnew,
+		const int l_section,
 		double* restrict huzmax,
 		double (*h)(const double, const double *),
 		double (*h_prime)(const double , const double *));
 
-double sample_hull(double* restrict x,
+double sample_hull(const double* restrict x,
 		ARS_workspace *ws,
-		int* restrict num_x,
+		const int* restrict num_x,
 		int* restrict section,
-		double p,
-		double huzmax);
+		const double p,
+		const double huzmax);
 
 void initialize_hull(double* restrict x,
 		ARS_workspace *ws,
 		int num_x,
 		double huzmax);
 
-void check_sample(double x_samp,
-		double *x, ARS_workspace *ws,
-		int *num_x);
+void check_sample(const double x_samp,
+		const double *x, const ARS_workspace *ws,
+		const int *num_x);
 
 void print_hull(double *x,
 		ARS_workspace *ws,
 		int *num_x);
 
-double log_apb(double loga,
-		double logb);
+double log_apb(const double loga,
+		const double logb);
