@@ -67,3 +67,6 @@ src/Makevars
 iBMQ.Rproj
 .Rproj.user*
 .Rhistory
+.Rproj.user
+Debug
+/Debug
