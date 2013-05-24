@@ -16,7 +16,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <R.h>
-#include <Rinterface.h>
 
 /*---------------------------------------------------------------------*/
 /* Private part.                                                       */
