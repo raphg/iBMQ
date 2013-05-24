@@ -34,7 +34,7 @@ ptr_memChunk initializeChunk(int n_els)
 
 	ptr_memChunk ptr_chunk;
 	ptr_chunk = (ptr_memChunk) R_alloc(1, sizeof(memChunk));
-	ptr_m_el el_array, last, tmp;
+	ptr_m_el el_array;
 
 	if (ptr_chunk == NULL) {
 		error("failed to allocate chunk header\n");
@@ -265,7 +265,6 @@ void SV_remove_el(ptr_m_el header, int j, ptr_memChunk ptr_chunk)
 // Add an element at index j to a sparse vector object.
 void SV_add_el(ptr_m_el header, int j, double val, ptr_memChunk ptr_chunk)
 {
-	int temp_ind;
 	ptr_m_el temp_ptr, temp_ptr1;
 	temp_ptr = header->next;
 	temp_ptr1 = header;
@@ -283,7 +282,6 @@ void SV_add_el(ptr_m_el header, int j, double val, ptr_memChunk ptr_chunk)
 	// list is not empty, must traverse list until we either
 	// reach the end or find the current index
 	else {
-		temp_ind = temp_ptr->ind;
 		while((temp_ptr != NULL) && (temp_ptr->ind < j)) {
 			temp_ptr1 = temp_ptr;
 			temp_ptr = temp_ptr->next;
