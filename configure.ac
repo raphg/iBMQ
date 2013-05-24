@@ -1,5 +1,5 @@
 AC_PREREQ([2.61])
-AC_INIT([iBMQ], [0.0.1], [http://www.rglab.org])
+AC_INIT([iBMQ], [1.0.1], [http://www.rglab.org])
 
 AC_CONFIG_SRCDIR([DESCRIPTION])
 
