@@ -28,12 +28,6 @@
 #include <gsl/gsl_sf.h>
 #include <gsl/gsl_check_range.h>
 
-#if (R_VERSION >= R_Version(2,3,0))
-#define R_INTERFACE_PTRS 1
-#define CSTACK_DEFNS 1
-#include <Rinterface.h>
-#endif
-
 void iBMQ_main(double *gene, int *n_indivs, int *n_genes, double *snp,
 		int *n_snps, int *n_iter, int *burn_in, int *n_sweep, double *outProbs, int *nP, int *nmax,
 		int *write_output);
@@ -54,8 +48,6 @@ void iBMQ_main(double *gene, int *n_indivs, int *n_genes, double *snp,
 		int *n_snps, int *n_iter, int *burn_in, int *n_sweep, double *outProbs, int *nP, int *nmax,
 		int *write_output)
 {
-	R_CStackLimit = (uintptr_t)-1;
-
 	int iter, i, j, g, th_id = 0;
 
 	// initialize a memory pool for linked list elements of the sparse matrix;
@@ -237,7 +229,7 @@ void iBMQ_main(double *gene, int *n_indivs, int *n_genes, double *snp,
 
 		if((iter > (*burn_in)) & ((iter-(*burn_in))%(*n_sweep) == 0))
 		{
-			update_prob_include(n_snps, n_genes, Gamma, ProbSum);
+			update_prob_include(*n_snps, *n_genes, Gamma, ProbSum);
 			if(*write_output != 0)
 			{
 				store_mcmc_output(Afile, Bfile, Pfile, Mufile, Sig2file, Cfile,
@@ -253,7 +245,7 @@ void iBMQ_main(double *gene, int *n_indivs, int *n_genes, double *snp,
 		}
 	}
 	// outputs estimate of P(gamma[j][g] = 1 | data)
-	store_prob_include(n_iter, n_snps, n_genes, ProbSum, outProbs);
+	store_prob_include(*n_iter, *n_snps, *n_genes, ProbSum, outProbs);
 
 	gsl_matrix_free(X);
 	gsl_matrix_free(Y);
@@ -292,7 +284,7 @@ void update_gene_g(ptr_m_el beta_g, int** Gamma,  double** W_Logit,
 	gsl_vector_set_all(Xbeta_sum_g, 0.0);
 
 	int i, j, cur;
-	double S_j, v1, v2, p1, w_jg, temp, logodds;
+	double S_j, v1, v2, temp, logodds;
 	double Cg = *C_g;
 	double Sg = *Sig2_g;
 	v1 = -.5*log1p(Cg);

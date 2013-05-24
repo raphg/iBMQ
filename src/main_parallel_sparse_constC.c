@@ -29,14 +29,6 @@
 #include <gsl/gsl_sf.h>
 #include <gsl/gsl_check_range.h>
 
-#if (R_VERSION >= R_Version(2,3,0))
-#define R_INTERFACE_PTRS 1
-#define CSTACK_DEFNS 1
-#include <Rinterface.h>
-#endif
-
-//#define ZZERO 2.0e-308
-
 void update_gene_g_constC(ptr_m_el beta_g, int** Gamma, double** W_Logit,
 		int** W_Ind, gsl_matrix* X, const gsl_vector* Y_g,
 		double* C_g, double* Mu_g, double* Sig2_g,
@@ -67,7 +59,6 @@ void c_qtl_main_parallel_sparse_constC(double *gene, int *n_indivs, int *n_genes
 	 * and GSL is row-major, so we send to a matrix and then
 	 * transpose it to get a GSL representation of the same matrix.
 	 */
-	R_CStackLimit = (uintptr_t)-1;
 
 	initializePool(*n_genes, (*n_snps+2), ptr_pool);
 
@@ -149,7 +140,6 @@ void c_qtl_main_parallel_sparse_constC(double *gene, int *n_indivs, int *n_genes
 
 	// initialize single indexed arrays
 	double *A, *B, *C, *P, *Mu, *Sig2, *expr_means, *expr_vars, *alpha2_beta;
-	double *Astart, *Bstart;
 
 	A = (double*)malloc(*n_snps*sizeof(double));
 	B = (double*)malloc(*n_snps*sizeof(double));;
@@ -262,13 +252,13 @@ void c_qtl_main_parallel_sparse_constC(double *gene, int *n_indivs, int *n_genes
 
 		if((iter > (*burn_in)) & ((iter-(*burn_in))%(*n_sweep) == 0))
 		{
-			update_prob_include(n_snps, n_genes, Gamma, ProbSum);
+			update_prob_include(*n_snps, *n_genes, Gamma, ProbSum);
 			store_mcmc_output_constC(Afile, Bfile, Pfile, Mufile, Sig2file,
 					n_snps, n_genes, A, B, P, Mu, Sig2);
 		}
 	}
 	// outputs estimate of P(gamma[j][g] = 1 | data)
-	store_prob_include(n_iter, n_snps, n_genes, ProbSum, outProbs);
+	store_prob_include(*n_iter, *n_snps, *n_genes, ProbSum, outProbs);
 
 
 	gsl_matrix_free(X);

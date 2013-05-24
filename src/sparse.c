@@ -256,7 +256,7 @@ void SV_remove_el(ptr_m_el header, int j, ptr_memChunk ptr_chunk)
 	// sure to be AT element j
 	if(temp_ptr->ind != j)
 	{
-		printf("failed to locate index %d in list\n", j);
+		Rprintf("failed to locate index %d in list\n", j);
 		return;
 	}
 	// link last item to next item
