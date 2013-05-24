@@ -17,13 +17,11 @@ void initializePool(int n_chunks, int n_els, ptr_memPool ptr_pool)
 	ptr_pool->array_head = (ptr_memChunk*) R_alloc(n_chunks, sizeof(ptr_memChunk));
 	ptr_pool->n_chunks = n_chunks;
 
-	if(ptr_pool->array_head == NULL)
-	{
+	if (ptr_pool->array_head == NULL) {
 		error("Failed to allocate memory pool\n");
 	}
 
-	for(i = 0; i < n_chunks; i++)
-	{
+	for(i = 0; i < n_chunks; i++) {
 		ptr_pool->array_head[i] = initializeChunk(n_els);
 	}
 	return;
@@ -38,8 +36,7 @@ ptr_memChunk initializeChunk(int n_els)
 	ptr_chunk = (ptr_memChunk) R_alloc(1, sizeof(memChunk));
 	ptr_m_el el_array, last, tmp;
 
-	if(ptr_chunk == NULL)
-	{
+	if (ptr_chunk == NULL) {
 		error("failed to allocate chunk header\n");
 	}
 
@@ -247,15 +244,13 @@ void SV_remove_el(ptr_m_el header, int j, ptr_memChunk ptr_chunk)
 	ptr_m_el temp_ptr, temp_ptr_prev;
 	temp_ptr = header->next;
 	temp_ptr_prev = header;
-	while((temp_ptr != NULL) && (temp_ptr->ind < j))
-	{
+	while((temp_ptr != NULL) && (temp_ptr->ind < j)) {
 		temp_ptr_prev = temp_ptr;
 		temp_ptr = temp_ptr->next;
 	}
 	// since we assume that j is in the list, when we've stopped we are
 	// sure to be AT element j
-	if(temp_ptr->ind != j)
-	{
+	if (temp_ptr->ind != j) {
 		Rprintf("failed to locate index %d in list\n", j);
 		return;
 	}
@@ -276,8 +271,7 @@ void SV_add_el(ptr_m_el header, int j, double val, ptr_memChunk ptr_chunk)
 	temp_ptr1 = header;
 
 	// check whether list is empty, if so insert as first element
-	if(temp_ptr == NULL)
-	{
+	if (temp_ptr == NULL) {
 		ptr_m_el new_element;
 		new_element = checkoutElementFromChunk(ptr_chunk);
 		new_element->x = val;
@@ -288,30 +282,24 @@ void SV_add_el(ptr_m_el header, int j, double val, ptr_memChunk ptr_chunk)
 
 	// list is not empty, must traverse list until we either
 	// reach the end or find the current index
-	else
-	{
+	else {
 		temp_ind = temp_ptr->ind;
-		while((temp_ptr != NULL) && (temp_ptr->ind < j))
-		{
+		while((temp_ptr != NULL) && (temp_ptr->ind < j)) {
 			temp_ptr1 = temp_ptr;
 			temp_ptr = temp_ptr->next;
 		}
 
-
 		// we are at end of list and/or we have reached the appropriate index
-		if(temp_ptr == NULL)
-		{
+		if (temp_ptr == NULL) {
 			// if we are at the end of the list, tmp_ptr 1 is the address
 			// of the last element, and either the index is equal,
 			// or it is greater.
-			if(j == temp_ptr1->ind)
-			{
+			if(j == temp_ptr1->ind) {
 				temp_ptr1->x = val;
 			}
 			// if index is greater then we must insert a new element
 			// at the end
-			else if(j > temp_ptr1->ind)
-			{
+			else if(j > temp_ptr1->ind) {
 				ptr_m_el new_element;
 				new_element = checkoutElementFromChunk(ptr_chunk);
 				new_element->x = val;
@@ -323,20 +311,17 @@ void SV_add_el(ptr_m_el header, int j, double val, ptr_memChunk ptr_chunk)
 			}
 		}
 		// did not reach end of list
-		else
-		{
+		else {
 			// index is equal, so element is present and we need not
 			// create a new one
 
-			if(j == temp_ptr->ind)
-			{
+			if(j == temp_ptr->ind) {
 				temp_ptr->x = val;
 			}
 
 			// index is greater, so we're in the middle and still must create
 			// a new element
-			else if(j < temp_ptr->ind)
-			{
+			else if(j < temp_ptr->ind) {
 				ptr_m_el new_element;
 				new_element = checkoutElementFromChunk(ptr_chunk);;
 				new_element->x = val;
