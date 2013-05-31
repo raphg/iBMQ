@@ -32,24 +32,21 @@ C:\Windows\System32\Wbem;
 C:\Windows\System32\WindowsPowerShell\v1.0\;
 C:\Program Files\MiKTeX 2.9\miktex\bin\;
 C:\Program Files\R\R-3.0.1\bin\i386;
-C:\Program Files\GnuWin32\bin
+C:\gsl\i386\bin
 
 In a sample installation, the last line 
 
-"C:\Program Files\GnuWin32\bin"
+"C:\gsl\i386\bin"
 
 contains the GSL binaries.
 
 # Compiling iBMQ from source in Windows
 Compiling iBMQ from source is only recommended for experienced users.
 In addition to setting the "Path" System variable, one must also
-establish User variables "GSL_INC" and "GSL_LIB" leading to 
-GSL header and source files, respectively. 
+establish User variable "LIB_GSL" leading to GSL header and lib files. 
 
 In a sample installation:
-
-GSL_INC: C:/Program\ Files/GnuWin32/include
-GSL_LIB: C:/Program\ Files/GnuWin32/lib
+LIB_GSL: C:/gsl
 
 Note the use of forward slashes separating directories. The character
 "\ " handles spaces in directory names. 
