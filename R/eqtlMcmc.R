@@ -66,7 +66,7 @@ outProb <- double(length = n.snp*n.pheno)
 
 # Set up the number of cores
 cores <- mc.cores
-if (is.null(cores)) cores <- parallel:::detectCores()
+if (is.null(cores)) cores <- parallel::detectCores()
 cores <- as.integer(cores)
 
 
